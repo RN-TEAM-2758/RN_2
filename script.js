@@ -400,3 +400,23 @@ player.CameraMode = Enum.CameraMode.Classic
 player.CameraMinZoomDistance = 0.5
 player.CameraMaxZoomDistance = 30
 ]])
+
+AddContent("TextButton", "tp no trem", [[
+local player = game.Players.LocalPlayer
+local function teleportar()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	local seat = workspace:WaitForChild("Train"):WaitForChild("TrainControls")
+		:WaitForChild("ConductorSeat"):WaitForChild("VehicleSeat")
+
+	-- Teleporta o jogador um pouco acima do assento
+	hrp.CFrame = seat.CFrame + Vector3.new(0, 3, 0)
+end
+
+-- Quando o personagem spawna, teleporta
+if player.Character then
+	teleportar()
+end
+player.CharacterAdded:Connect(teleportar)
+]])
