@@ -1,62 +1,11 @@
---[[
-    WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
-]]
-
-repeat task.wait(0.25) until game:IsLoaded()
-getgenv().Image = "rbxassetid://15298567397"
-getgenv().ToggleUI = "E"
-
-task.spawn(function()
-    if not getgenv().LoadedMobileUI then
-        getgenv().LoadedMobileUI = true
-        local OpenUI = Instance.new("ScreenGui")
-        local ImageButton = Instance.new("ImageButton")
-        local UICorner = Instance.new("UICorner")
-        
-        OpenUI.Name = "OpenUI"
-        OpenUI.Parent = game:GetService("CoreGui")
-        OpenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        
-        ImageButton.Parent = OpenUI
-        ImageButton.BackgroundColor3 = Color3.fromRGB(105, 105, 105)
-        ImageButton.BackgroundTransparency = 0.8
-        ImageButton.Position = UDim2.new(0.9, 0, 0.1, 0)
-        ImageButton.Size = UDim2.new(0, 50, 0, 50)
-        ImageButton.Image = getgenv().Image
-        ImageButton.Draggable = true
-        ImageButton.Transparency = 1
-        
-        UICorner.CornerRadius = UDim.new(0, 200)
-        UICorner.Parent = ImageButton
-        
-        ImageButton.MouseButton1Click:Connect(function()
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, getgenv().ToggleUI, false, game)
-        end)
-    end
-end)
-
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
-local Window = Fluent:CreateWindow({
-    Title = "MENU " .. Fluent.Version,
-    SubTitle = "RN_TEAM",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = true,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.E
-})
-
-local Tabs = {
-    _1 = Window:AddTab({ Title = "auto Fram", Icon = "" }),
-    Informacoes = Window:AddTab({ Title = "INFORMAÇÕES", Icon = "info" })
-}
-
-Tabs._1:AddButton({
-    Title = "apagar casas",
-    Description = "Very important button",
-    Callback = function()
-       local function deleteColorWalls()
+---Ghost Gui UI Library
+loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/UI-Library/refs/heads/main/Ghost%20Gui'))()
+game.CoreGui.GhostGui.MainFrame.Title.Text = "MENU FRAM"
+---
+ 
+ 
+AddContent("TextButton", "apagar casas", [[
+local function deleteColorWalls()
     local deletedCount = 0 -- Contador de objetos apagados
 
     -- Percorre todos os descendentes do Workspace
@@ -80,14 +29,11 @@ while true do
     deleteColorWalls() -- Executa a função
     wait(5)
 end
-    end
-})
+]])
 
-Tabs._1:AddButton({
-    Title = "tp end",
-    Description = "Very important button",
-    Callback = function()
-       local config = {
+AddContent("TextButton", "tp end", [[
+-- Configurações do teleporte
+local config = {
     vezesTeleporte = 200,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,             -- Intervalo entre teleportes em segundos
     velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
@@ -139,14 +85,25 @@ end)
 if game.Players.LocalPlayer.Character then
     iniciarTeleporte()
 end
-    end
-})
+]])
 
-Tabs._1:AddButton({
-    Title = "auto matar os npcs do final",
-    Description = "Very important button",
-    Callback = function()
-        local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
+AddContent("TextButton", "Noclip", [[
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+
+local function Noclip()
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+end
+
+game:GetService("RunService").Stepped:Connect(Noclip)
+]])
+
+AddContent("TextButton", "auto npcs do final", [[
+local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
 local ativo = false
 
 -- VARIÁVEIS
@@ -241,33 +198,10 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-    end
-})
+]])
 
-Tabs._1:AddButton({
-    Title = "Noclip",
-    Description = "Very important button",
-    Callback = function()
-       local Player = game.Players.LocalPlayer
-local Character = Player.Character or Player.CharacterAdded:Wait()
-
-local function Noclip()
-    for _, part in pairs(Character:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide then
-            part.CanCollide = false
-        end
-    end
-end
-
-game:GetService("RunService").Stepped:Connect(Noclip)
-    end
-})
-
-Tabs._1:AddButton({
-    Title = "lock npc",
-    Description = "Very important button",
-    Callback = function()
-       local caminhosNPCs = {}
+AddContent("TextButton", "lock npc", [[
+local caminhosNPCs = {}
 
 local function tentarAdicionar(caminho)
     if caminho then
@@ -456,77 +390,13 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-    end
-})
+]])
 
-Tabs._1:AddButton({
-    Title = "zom",
-    Description = "Very important button",
-    Callback = function()
-       local player = game:GetService("Players").LocalPlayer
+AddContent("TextButton", "zom", [[
+local player = game:GetService("Players").LocalPlayer
 
 player.CameraMode = Enum.CameraMode.Classic
 
 player.CameraMinZoomDistance = 0.5
 player.CameraMaxZoomDistance = 30
-    end
-})
-
-Tabs.Informacoes:AddParagraph({
-    Title = "INFORMAÇÕES DO JOGADOR",
-    Content = "Nome do jogador: " .. game.Players.LocalPlayer.Name
-})
-
-Tabs.Informacoes:AddParagraph({
-    Title = "SAÚDE DO JOGADOR",
-    Content = "Saúde: " .. game.Players.LocalPlayer.Character.Humanoid.Health
-})
-
-Tabs.Informacoes:AddParagraph({
-    Title = "INFORMAÇÕES DO SERVIDOR",
-    Content = "Jogadores online: " .. #game:GetService("Players"):GetPlayers() .. "\n" ..
-              "Máximo de jogadores: " .. game:GetService("Players").MaxPlayers
-})
-
-Tabs.Informacoes:AddButton({
-    Title = "REINICIAR SERVIDOR",
-    Description = "Reinicia o jogo e mantém o mesmo servidor.",
-    Callback = function()
-        local currentPlayer = game.Players.LocalPlayer
-        local currentServerId = game.JobId
-        
-        game:Shutdown()
-        
-        task.wait(5)
-        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, currentServerId)
-    end
-})
-
-Fluent:Notify({
-    Title = "Notificação",
-    Content = "Este é um aviso inicial",
-    SubContent = "SubContent",
-    Duration = 5
-})
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-
-InterfaceManager:SetFolder("FluentScriptHub")
-SaveManager:SetFolder("FluentScriptHub/specific-game")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Informacoes)
-SaveManager:BuildConfigSection(Tabs.Informacoes)
-
-Window:SelectTab(1)
-
-Fluent:Notify({
-    Title = "MENU",
-    Content = "O script foi carregado.",
-    Duration = 8
-})
-
-SaveManager:LoadAutoloadConfig()
+]])
