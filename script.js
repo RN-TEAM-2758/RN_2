@@ -1,11 +1,126 @@
----Ghost Gui UI Library
-loadstring(game:HttpGet('https://raw.githubusercontent.com/GhostPlayer352/UI-Library/refs/heads/main/Ghost%20Gui'))()
-game.CoreGui.GhostGui.MainFrame.Title.Text = "MENU FRAM"
----
- 
- 
-AddContent("TextButton", "apagar casas", [[
-local function deleteColorWalls()
+local rolibwaita = loadstring(game:HttpGet("https://codeberg.org/Blukez/rolibwaita/raw/branch/master/Source.lua"))()
+
+local Window = rolibwaita:NewWindow({
+    Name = "RN-TEAM",
+    Keybind = "RightShift",
+    UseCoreGui = true,
+    PrintCredits = false
+})
+
+local TabScripts = Window:NewTab({ Name = "MENU FRAM", Icon = "" })
+
+-- RN_TEAM
+local SecScripts = TabScripts:NewSection({ Name = "OPÇÕES", Description = "" })
+
+local camera = game.Workspace.CurrentCamera
+local localplayer = game:GetService("Players").LocalPlayer
+local fov = 30
+local conexaoAimbot
+local caminhosNPCs = {}
+
+local function tentarAdicionar(caminho)
+    if caminho then
+        table.insert(caminhosNPCs, caminho)
+    end
+end
+
+local function encontrarNPCsVivos()
+    caminhosNPCs = {}
+
+    tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
+    tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
+
+    local towns = workspace:FindFirstChild("Towns")
+    if towns then
+        local function getZombies(townName)
+            local town = towns:FindFirstChild(townName)
+            if town then
+                local part = town:FindFirstChild("ZombiePart")
+                if part then
+                    return part:FindFirstChild("Zombies")
+                end
+            end
+            return nil
+        end
+
+        tentarAdicionar(getZombies("LargeTownTemplate"))
+        tentarAdicionar(getZombies("SmallTownTemplate"))
+        tentarAdicionar(getZombies("MediumTownTemplate"))
+
+        for _, cidade in pairs(towns:GetChildren()) do
+            local part = cidade:FindFirstChild("ZombiePart")
+            if part then
+                local z = part:FindFirstChild("Zombies")
+                if z then
+                    tentarAdicionar(z)
+                end
+            end
+        end
+    end
+
+    local vivos = {}
+    for _, caminho in ipairs(caminhosNPCs) do
+        if caminho and caminho:IsDescendantOf(workspace) then
+            for _, npc in ipairs(caminho:GetChildren()) do
+                local hum = npc:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    table.insert(vivos, npc)
+                end
+            end
+        end
+    end
+    return vivos
+end
+
+local function closestNPC()
+    local dist = math.huge
+    local target = nil
+    local cameraDirection = camera.CFrame.LookVector
+
+    for _, npc in pairs(encontrarNPCsVivos()) do
+        if npc and npc:FindFirstChild("Head") then
+            local magnitude = (npc.Head.Position - localplayer.Character.Head.Position).magnitude
+            local targetDirection = (npc.Head.Position - camera.CFrame.Position).unit
+            local angle = math.deg(math.acos(cameraDirection:Dot(targetDirection)))
+
+            if angle <= fov / 2 and magnitude < dist then
+                dist = magnitude
+                target = npc
+            end
+        end
+    end
+    return target
+end
+
+-- Toggle de ativação do aimbot no menu
+SecScripts:NewToggle({
+    Name = "Ativar Aimbot",
+    Description = "Mira automática em NPCs",
+    CurrentState = false,
+    Callback = function(state)
+        if state then
+            conexaoAimbot = game:GetService("RunService").RenderStepped:Connect(function()
+                local targetNPC = closestNPC()
+                if targetNPC then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetNPC.Head.Position)
+                end
+            end)
+            print("Aimbot ATIVADO")
+        else
+            if conexaoAimbot then
+                conexaoAimbot:Disconnect()
+                conexaoAimbot = nil
+            end
+            print("Aimbot DESATIVADO")
+        end
+    end
+})
+
+SecScripts:NewButton({
+    Name = "apagar casas",
+    Description = "apagar todas as paredes das casas",
+    Callback = function()
+        local function deleteColorWalls()
     local deletedCount = 0 -- Contador de objetos apagados
 
     -- Percorre todos os descendentes do Workspace
@@ -29,11 +144,15 @@ while true do
     deleteColorWalls() -- Executa a função
     wait(5)
 end
-]])
+        print("Botão pressionado!")
+    end
+})
 
-AddContent("TextButton", "tp end", [[
--- Configurações do teleporte
-local config = {
+SecScripts:NewButton({
+    Name = "tp end",
+    Description = "da um teleporte no final",
+    Callback = function()
+        local config = {
     vezesTeleporte = 200,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,             -- Intervalo entre teleportes em segundos
     velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
@@ -85,25 +204,15 @@ end)
 if game.Players.LocalPlayer.Character then
     iniciarTeleporte()
 end
-]])
-
-AddContent("TextButton", "Noclip", [[
-local Player = game.Players.LocalPlayer
-local Character = Player.Character or Player.CharacterAdded:Wait()
-
-local function Noclip()
-    for _, part in pairs(Character:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide then
-            part.CanCollide = false
-        end
+        print("Botão pressionado!")
     end
-end
+})
 
-game:GetService("RunService").Stepped:Connect(Noclip)
-]])
-
-AddContent("TextButton", "auto npcs do final", [[
-local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
+SecScripts:NewButton({
+    Name = "auto matar os npcs do final",
+    Description = "",
+    Callback = function()
+        local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
 local ativo = false
 
 -- VARIÁVEIS
@@ -198,10 +307,35 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-]])
+        print("Botão pressionado!")
+    end
+})
 
-AddContent("TextButton", "lock npc", [[
-local caminhosNPCs = {}
+SecScripts:NewButton({
+    Name = "Noclip",
+    Description = "atravessar parede",
+    Callback = function()
+        local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+
+local function Noclip()
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+end
+
+game:GetService("RunService").Stepped:Connect(Noclip)
+        print("Botão pressionado!")
+    end
+})
+
+SecScripts:NewButton({
+    Name = "lock npc",
+    Description = "auto matar npcs das cidades",
+    Callback = function()
+        local caminhosNPCs = {}
 
 local function tentarAdicionar(caminho)
     if caminho then
@@ -390,19 +524,29 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-]])
+        print("Botão pressionado!")
+    end
+})
 
-AddContent("TextButton", "zom", [[
-local player = game:GetService("Players").LocalPlayer
+SecScripts:NewButton({
+    Name = "zom",
+    Description = "como se tivesse em seguida pessoa",
+    Callback = function()
+        local player = game:GetService("Players").LocalPlayer
 
 player.CameraMode = Enum.CameraMode.Classic
 
 player.CameraMinZoomDistance = 0.5
 player.CameraMaxZoomDistance = 30
-]])
+        print("Botão pressionado!")
+    end
+})
 
-AddContent("TextButton", "tp no trem", [[
-local player = game.Players.LocalPlayer
+SecScripts:NewButton({
+    Name = "tp no trem",
+    Description = "nada",
+    Callback = function()
+        local player = game.Players.LocalPlayer
 local function teleportar()
 	local character = player.Character or player.CharacterAdded:Wait()
 	local hrp = character:WaitForChild("HumanoidRootPart")
@@ -419,4 +563,48 @@ if player.Character then
 	teleportar()
 end
 player.CharacterAdded:Connect(teleportar)
-]])
+    end
+})
+
+local Tabcomandos= Window:NewTab({ Name = "comandos", Icon = "" })
+local SecExtras = Tabcomandos:NewSection({ Name = "Extras", Description = "Outros scripts e testes" })
+
+SecExtras:NewDropdown({
+    Name = "Escolha uma opção",
+    Description = "Dropdown de exemplo",
+    Choices = {"Opção 1", "Opção 2", "Opção 3"},
+    CurrentState = "Opção 1",
+    Callback = function(value)
+        print("Você escolheu: " .. value)
+    end
+})
+
+SecExtras:NewTextBox({
+    Name = "Comando Rápido",
+    PlaceholderText = "Digite algo...",
+    Text = "",
+    Trigger = "FocusLost",
+    Callback = function(value)
+        local success, err = pcall(function()
+            loadstring(value)()
+        end)
+        if not success then
+            warn("Erro ao executar comando: " .. err)
+        else
+            print("Comando executado com sucesso!")
+        end
+    end
+})
+
+SecExtras:NewButton({
+    Name = "Executar ação",
+    Description = "Executar códigos",
+    Callback = function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Sucesso",
+            Text = "Ação executada!",
+            Duration = 3
+        })
+        print("Botão pressionado: ação executada.")
+    end
+})
