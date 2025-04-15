@@ -1,21 +1,89 @@
-local rolibwaita = loadstring(game:HttpGet("https://codeberg.org/Blukez/rolibwaita/raw/branch/master/Source.lua"))()
+repeat task.wait() until game:IsLoaded()
+wait(1)
 
-local Window = rolibwaita:NewWindow({
-    Name = "RN-TEAM",
-    Keybind = "RightShift",
-    UseCoreGui = true,
-    PrintCredits = false
-})
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Lighting = game:GetService("Lighting")
 
-local TabScripts = Window:NewTab({ Name = "MENU FRAM", Icon = "" })
+local guiReady, PlayerGui = pcall(function()
+    return LocalPlayer:WaitForChild("PlayerGui", 5)
+end)
 
--- RN_TEAM
-local SecScripts = TabScripts:NewSection({ Name = "OPÇÕES", Description = "" })
+if not guiReady or not PlayerGui then
+    warn("PlayerGui não foi carregado.")
+    return
+end
 
+-- Criar GUI principal
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MobileUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = PlayerGui
+
+-- Botão flutuante
+local FloatButton = Instance.new("TextButton")
+FloatButton.Size = UDim2.new(0, 50, 0, 50)
+FloatButton.Position = UDim2.new(0, 20, 0.5, -45)
+FloatButton.Text = "🡸"
+FloatButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+FloatButton.TextColor3 = Color3.new(1, 1, 1)
+FloatButton.Font = Enum.Font.GothamBold
+FloatButton.TextScaled = true
+FloatButton.BorderSizePixel = 0
+FloatButton.Parent = ScreenGui
+
+-- Frame com Scroll
+local Panel = Instance.new("ScrollingFrame")
+Panel.Size = UDim2.new(0, 250, 0, 300)
+Panel.Position = UDim2.new(0, 80, 0.5, -150)
+Panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Panel.CanvasSize = UDim2.new(0, 0, 0, 0) -- Auto-ajustável
+Panel.ScrollBarThickness = 6
+Panel.ScrollingDirection = Enum.ScrollingDirection.Y
+Panel.Visible = true
+Panel.Parent = ScreenGui
+
+Instance.new("UICorner", Panel)
+
+local UIList = Instance.new("UIListLayout", Panel)
+UIList.Padding = UDim.new(0, 5)
+
+local function UpdateCanvas()
+    task.wait()
+    Panel.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 10)
+end
+UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+
+-- Criador de botões
+function CriarBotao(nome, func)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.Text = nome
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextScaled = true
+    btn.Parent = Panel
+    btn.MouseButton1Click:Connect(func)
+end
+
+-- Minimizar
+local minimized = false
+FloatButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    Panel.Visible = not minimized
+    FloatButton.Text = minimized and "🡺" or "🡸"
+end)
+
+CriarBotao("aimbot", function()
 local camera = game.Workspace.CurrentCamera
 local localplayer = game:GetService("Players").LocalPlayer
-local fov = 30
-local conexaoAimbot
+
+_G.aimbot = true
+local fov = 20
+
+-- Variáveis para controle de NPCs
 local caminhosNPCs = {}
 
 local function tentarAdicionar(caminho)
@@ -27,6 +95,7 @@ end
 local function encontrarNPCsVivos()
     caminhosNPCs = {}
 
+    -- Adicionando possíveis caminhos para os NPCs
     tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
     tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
 
@@ -72,11 +141,12 @@ local function encontrarNPCsVivos()
     return vivos
 end
 
-local function closestNPC()
+function closestNPC()
     local dist = math.huge
     local target = nil
     local cameraDirection = camera.CFrame.LookVector
 
+    -- Encontrando o NPC mais próximo
     for _, npc in pairs(encontrarNPCsVivos()) do
         if npc and npc:FindFirstChild("Head") then
             local magnitude = (npc.Head.Position - localplayer.Character.Head.Position).magnitude
@@ -92,67 +162,105 @@ local function closestNPC()
     return target
 end
 
--- Toggle de ativação do aimbot no menu
-SecScripts:NewToggle({
-    Name = "Ativar Aimbot",
-    Description = "Mira automática em NPCs",
-    CurrentState = false,
-    Callback = function(state)
-        if state then
-            conexaoAimbot = game:GetService("RunService").RenderStepped:Connect(function()
-                local targetNPC = closestNPC()
-                if targetNPC then
-                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetNPC.Head.Position)
-                end
-            end)
-            print("Aimbot ATIVADO")
-        else
-            if conexaoAimbot then
-                conexaoAimbot:Disconnect()
-                conexaoAimbot = nil
-            end
-            print("Aimbot DESATIVADO")
+-- A cada frame, verificar e seguir o NPC mais próximo
+game:GetService("RunService").RenderStepped:Connect(function()
+    if _G.aimbot then
+        local targetNPC = closestNPC()
+        if targetNPC then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, targetNPC.Head.Position)
         end
     end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "apagar casas",
-    Description = "apagar todas as paredes das casas",
-    Callback = function()
-        local function deleteColorWalls()
-    local deletedCount = 0 -- Contador de objetos apagados
+-- Criando o botão na interface
+local gui = Instance.new("ScreenGui", localplayer:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
+gui.Name = "NPCSeguidorGUI"
 
-    -- Percorre todos os descendentes do Workspace
-    for _, child in pairs(workspace:GetDescendants()) do
-        if child.Name == "ColorWall" then
-            child:Destroy() -- Apaga o objeto
-            deletedCount = deletedCount + 1
-        end
+local botao = Instance.new("TextButton")
+botao.Size = UDim2.new(0, 140, 0, 50)
+botao.Position = UDim2.new(1, -160, 0, -30)
+botao.Text = "Ativar"
+botao.TextScaled = true
+botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
+botao.TextColor3 = Color3.new(1, 1, 1)
+botao.Parent = gui
+
+-- Lógica de arrastar o botão na tela (suporta dispositivo móvel)
+local dragging, offset
+botao.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        offset = input.Position - botao.AbsolutePosition
     end
+end)
 
-    -- Exibe o resultado no console
-    if deletedCount > 0 then
-        print(deletedCount .. " objetos 'ColorWall' foram apagados.")
+botao.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local newPos = input.Position - offset
+        botao.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+    end
+end)
+
+-- Alterar o status do aimbot ao clicar no botão
+botao.MouseButton1Click:Connect(function()
+    if _G.aimbot then
+        _G.aimbot = false
+        botao.Text = "Ativar"
+        botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
     else
-        print("Nenhum objeto 'ColorWall' encontrado.")
+        _G.aimbot = true
+        botao.Text = "Desligar"
+        botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
-end
+end)
+end)
 
--- Loop a cada 5 segundos
-while true do
-    deleteColorWalls() -- Executa a função
-    wait(5)
-end
-        print("Botão pressionado!")
+CriarBotao("🌞 Fullbright", function()
+    Lighting.GlobalShadows = false
+    Lighting.Brightness = 10
+end)
+
+CriarBotao("ESP Básico", function()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            if not p.Character:FindFirstChild("Highlight") then
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.fromRGB(0, 0, 0)
+                h.OutlineColor = Color3.new(1, 1, 1)
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                h.Parent = p.Character
+            end
+        end
     end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "tp end",
-    Description = "da um teleporte no final",
-    Callback = function()
-        local config = {
+CriarBotao("Apagar Casas", function()
+    local function deleteColorWalls()
+        local count = 0
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name == "ColorWall" then
+                obj:Destroy()
+                count += 1
+            end
+        end
+        print("Apagados:", count)
+    end
+
+    while true do
+        deleteColorWalls()
+        task.wait(5)
+    end
+end)
+
+CriarBotao("tp end", function()
+local config = {
     vezesTeleporte = 200,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,             -- Intervalo entre teleportes em segundos
     velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
@@ -204,15 +312,10 @@ end)
 if game.Players.LocalPlayer.Character then
     iniciarTeleporte()
 end
-        print("Botão pressionado!")
-    end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "auto matar os npcs do final",
-    Description = "",
-    Callback = function()
-        local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
+CriarBotao("auto kill final", function()
+local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
 local ativo = false
 
 -- VARIÁVEIS
@@ -307,15 +410,10 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-        print("Botão pressionado!")
-    end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "Noclip",
-    Description = "atravessar parede",
-    Callback = function()
-        local Player = game.Players.LocalPlayer
+CriarBotao("Noclip", function()
+local Player = game.Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 
 local function Noclip()
@@ -327,15 +425,10 @@ local function Noclip()
 end
 
 game:GetService("RunService").Stepped:Connect(Noclip)
-        print("Botão pressionado!")
-    end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "lock npc",
-    Description = "auto matar npcs das cidades",
-    Callback = function()
-        local caminhosNPCs = {}
+CriarBotao("lock npc", function()
+local caminhosNPCs = {}
 
 local function tentarAdicionar(caminho)
     if caminho then
@@ -524,87 +617,18 @@ botao.MouseButton1Click:Connect(function()
         botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
     end
 end)
-        print("Botão pressionado!")
-    end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "zom",
-    Description = "como se tivesse em seguida pessoa",
-    Callback = function()
-        local player = game:GetService("Players").LocalPlayer
+CriarBotao("zom", function()
+local player = game:GetService("Players").LocalPlayer
 
 player.CameraMode = Enum.CameraMode.Classic
 
 player.CameraMinZoomDistance = 0.5
 player.CameraMaxZoomDistance = 30
-        print("Botão pressionado!")
-    end
-})
+end)
 
-SecScripts:NewButton({
-    Name = "tp no trem",
-    Description = "nada",
-    Callback = function()
-        local player = game.Players.LocalPlayer
-local function teleportar()
-	local character = player.Character or player.CharacterAdded:Wait()
-	local hrp = character:WaitForChild("HumanoidRootPart")
-
-	local seat = workspace:WaitForChild("Train"):WaitForChild("TrainControls")
-		:WaitForChild("ConductorSeat"):WaitForChild("VehicleSeat")
-
-	-- Teleporta o jogador um pouco acima do assento
-	hrp.CFrame = seat.CFrame + Vector3.new(0, 3, 0)
-end
-
--- Quando o personagem spawna, teleporta
-if player.Character then
-	teleportar()
-end
-player.CharacterAdded:Connect(teleportar)
-    end
-})
-
-local Tabcomandos= Window:NewTab({ Name = "comandos", Icon = "" })
-local SecExtras = Tabcomandos:NewSection({ Name = "Extras", Description = "Outros scripts e testes" })
-
-SecExtras:NewDropdown({
-    Name = "Escolha uma opção",
-    Description = "Dropdown de exemplo",
-    Choices = {"Opção 1", "Opção 2", "Opção 3"},
-    CurrentState = "Opção 1",
-    Callback = function(value)
-        print("Você escolheu: " .. value)
-    end
-})
-
-SecExtras:NewTextBox({
-    Name = "Comando Rápido",
-    PlaceholderText = "Digite algo...",
-    Text = "",
-    Trigger = "FocusLost",
-    Callback = function(value)
-        local success, err = pcall(function()
-            loadstring(value)()
-        end)
-        if not success then
-            warn("Erro ao executar comando: " .. err)
-        else
-            print("Comando executado com sucesso!")
-        end
-    end
-})
-
-SecExtras:NewButton({
-    Name = "Executar ação",
-    Description = "Executar códigos",
-    Callback = function()
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Sucesso",
-            Text = "Ação executada!",
-            Duration = 3
-        })
-        print("Botão pressionado: ação executada.")
-    end
-})
+-- Botão de fechar
+CriarBotao("❌ Fechar", function()
+    ScreenGui:Destroy()
+end)
