@@ -81,7 +81,6 @@ local camera = game.Workspace.CurrentCamera
 local localplayer = game:GetService("Players").LocalPlayer
 
 _G.aimbot = true
-local fov = 20
 
 -- Variáveis para controle de NPCs
 local caminhosNPCs = {}
@@ -98,6 +97,7 @@ local function encontrarNPCsVivos()
     -- Adicionando possíveis caminhos para os NPCs
     tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
     tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
+    tentarAdicionar(workspace:FindFirstChild("RuntimeItems"))
 
     local towns = workspace:FindFirstChild("Towns")
     if towns then
@@ -127,6 +127,14 @@ local function encontrarNPCsVivos()
         end
     end
 
+    tentarAdicionar(
+        workspace:FindFirstChild("Baseplates")
+        and workspace.Baseplates:FindFirstChild("FinalBasePlate")
+        and workspace.Baseplates.FinalBasePlate:FindFirstChild("OutlawBase")
+        and workspace.Baseplates.FinalBasePlate.OutlawBase:FindFirstChild("StandaloneZombiePart")
+        and workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart:FindFirstChild("Zombies")
+    )
+
     local vivos = {}
     for _, caminho in ipairs(caminhosNPCs) do
         if caminho and caminho:IsDescendantOf(workspace) then
@@ -144,16 +152,11 @@ end
 function closestNPC()
     local dist = math.huge
     local target = nil
-    local cameraDirection = camera.CFrame.LookVector
 
-    -- Encontrando o NPC mais próximo
     for _, npc in pairs(encontrarNPCsVivos()) do
-        if npc and npc:FindFirstChild("Head") then
+        if npc and npc:FindFirstChild("Head") and localplayer.Character and localplayer.Character:FindFirstChild("Head") then
             local magnitude = (npc.Head.Position - localplayer.Character.Head.Position).magnitude
-            local targetDirection = (npc.Head.Position - camera.CFrame.Position).unit
-            local angle = math.deg(math.acos(cameraDirection:Dot(targetDirection)))
-
-            if angle <= fov / 2 and magnitude < dist then
+            if magnitude < dist then
                 dist = magnitude
                 target = npc
             end
@@ -162,7 +165,6 @@ function closestNPC()
     return target
 end
 
--- A cada frame, verificar e seguir o NPC mais próximo
 game:GetService("RunService").RenderStepped:Connect(function()
     if _G.aimbot then
         local targetNPC = closestNPC()
@@ -208,17 +210,11 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
     end
 end)
 
--- Alterar o status do aimbot ao clicar no botão
+-- Alternar o aimbot ao clicar
 botao.MouseButton1Click:Connect(function()
-    if _G.aimbot then
-        _G.aimbot = false
-        botao.Text = "Ativar"
-        botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
-    else
-        _G.aimbot = true
-        botao.Text = "Desligar"
-        botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
-    end
+    _G.aimbot = not _G.aimbot
+    botao.Text = _G.aimbot and "Desligar" or "Ativar"
+    botao.BackgroundColor3 = _G.aimbot and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(30, 200, 30)
 end)
 end)
 
