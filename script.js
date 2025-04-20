@@ -98,6 +98,7 @@ local function encontrarNPCsVivos()
     tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
     tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
     tentarAdicionar(workspace:FindFirstChild("RuntimeItems"))
+    tentarAdicionar(workspace:FindFirstChild("FortConstitution") and workspace.FortConstitution:FindFirstChild("Enemies"))
 
     local towns = workspace:FindFirstChild("Towns")
     if towns then
