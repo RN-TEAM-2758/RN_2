@@ -645,28 +645,118 @@ player.CharacterAdded:Connect(teleportar)
 end)
 
 CriarBotao("esp Unicorn", function()
--- Função para aplicar Highlight no Unicorn
-local function destacarUnicornio()
-    local unicorn = workspace:FindFirstChild("RuntimeItems")
-    if unicorn then
-        local alvo = unicorn:FindFirstChild("Unicorn")
-        if alvo and not alvo:FindFirstChild("Highlight") then
-            local h = Instance.new("Highlight")
-            h.FillColor = Color3.fromRGB(255, 105, 255) -- cor roxinha só pra destacar bem
-            h.OutlineColor = Color3.new(1, 1, 1)
-            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            h.Parent = alvo
-        end
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Função para criar highlight seguro
+local function aplicarHighlight(entidade)
+    if entidade and not entidade:FindFirstChild("Highlight") then
+        local h = Instance.new("Highlight")
+        h.FillColor = Color3.fromRGB(0, 0, 0)
+        h.OutlineColor = Color3.new(1, 1, 1)
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Parent = entidade
     end
 end
 
--- Verifica repetidamente se o Unicorn apareceu
+-- ESP para jogadores (exceto você)
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer and p.Character then
+        aplicarHighlight(p.Character)
+    end
+end
+
+-- ESP contínuo para o Unicorn que aparece depois
 task.spawn(function()
     while true do
-        destacarUnicornio()
-        task.wait(2.5) -- checa a cada 1 segundo
+        local runtime = workspace:FindFirstChild("RuntimeItems")
+        if runtime then
+            local unicorn = runtime:FindFirstChild("Unicorn")
+            if unicorn then
+                aplicarHighlight(unicorn)
+            end
+        end
+        task.wait(1) -- verificação constante a cada 1 segundo
     end
 end)
+end)
+
+CriarBotao("auto colete", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
+local distanciaMax = 50
+
+-- Função pra obter a parte central do item
+local function obterParteCentral(obj)
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    elseif obj:IsA("BasePart") then
+        return obj
+    end
+    return nil
+end
+
+-- Criar marcador visual flutuante (texto)
+local function marcar(item, texto, cor)
+    local gui = item:FindFirstChild("DEBUG_GUI")
+    if not gui then
+        gui = Instance.new("BillboardGui")
+        gui.Name = "DEBUG_GUI"
+        gui.Size = UDim2.new(0, 100, 0, 40)
+        gui.StudsOffset = Vector3.new(0, 2, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = item
+
+        local label = Instance.new("TextLabel", gui)
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Name = "Texto"
+        label.TextColor3 = cor or Color3.new(1, 1, 1)
+        label.Text = texto
+    else
+        gui.Texto.Text = texto
+        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
+    end
+end
+
+-- Loop principal
+while true do
+    for _, folder in pairs(workspace:GetDescendants()) do
+        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+            for _, item in pairs(folder:GetChildren()) do
+                local parte = obterParteCentral(item)
+                if parte then
+                    local dist = (humanoidRootPart.Position - parte.Position).Magnitude
+                    if dist <= distanciaMax then
+                        -- Tenta pegar até dar certo
+                        spawn(function()
+                            while true do
+                                local sucesso, erro = pcall(function()
+                                    remote:FireServer(item)
+                                end)
+
+                                if sucesso then
+                                    marcar(item, "Coletado", Color3.fromRGB(0, 255, 0))
+                                    print("Coletado com sucesso:", item.Name)
+                                    break
+                                else
+                                    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+                                    print("Falha ao tentar pegar:", item.Name)
+                                end
+
+                                wait(1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    wait(0.3)
+end
 end)
 
 -- Botão de fechar
