@@ -646,37 +646,40 @@ end)
 
 CriarBotao("esp Unicorn", function()
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- Função para criar highlight seguro
-local function aplicarHighlight(entidade)
-    if entidade and not entidade:FindFirstChild("Highlight") then
-        local h = Instance.new("Highlight")
-        h.FillColor = Color3.fromRGB(0, 0, 0)
-        h.OutlineColor = Color3.new(1, 1, 1)
-        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        h.Parent = entidade
+-- Lista de caminhos onde os NPCs podem aparecer
+local caminhosDeNPCs = {
+    workspace:FindFirstChild("RuntimeItems")
+}
+
+-- Nome dos NPCs que devem receber ESP
+local nomesDeNPCs = {
+    "Unicorn"
+}
+
+-- Função para adicionar ESP em um modelo
+local function adicionarESP(modelo)
+    if not modelo:FindFirstChild("Highlight") then
+        local highlight = Instance.new("Highlight")
+        highlight.FillColor = Color3.fromRGB(0, 0, 0)
+        highlight.OutlineColor = Color3.new(1, 1, 1)
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = modelo
     end
 end
 
--- ESP para jogadores (exceto você)
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer and p.Character then
-        aplicarHighlight(p.Character)
-    end
-end
-
--- ESP contínuo para o Unicorn que aparece depois
-task.spawn(function()
-    while true do
-        local runtime = workspace:FindFirstChild("RuntimeItems")
-        if runtime then
-            local unicorn = runtime:FindFirstChild("Unicorn")
-            if unicorn then
-                aplicarHighlight(unicorn)
+-- Verifica todos os caminhos frequentemente para adicionar ESP nos NPCs corretos
+RunService.RenderStepped:Connect(function()
+    for _, caminho in ipairs(caminhosDeNPCs) do
+        if caminho and caminho:IsDescendantOf(workspace) then
+            for _, npc in pairs(caminho:GetChildren()) do
+                if table.find(nomesDeNPCs, npc.Name) then
+                    adicionarESP(npc)
+                end
             end
         end
-        task.wait(1) -- verificação constante a cada 1 segundo
     end
 end)
 end)
