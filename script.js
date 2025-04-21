@@ -739,7 +739,7 @@ while true do
                                 end)
 
                                 if sucesso then
-                                    marcar(item, "Coletado", Color3.fromRGB(0, 255, 0))
+                                    marcar(item, "", Color3.fromRGB(0, 255, 0))
                                     print("Coletado com sucesso:", item.Name)
                                     break
                                 else
