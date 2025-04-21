@@ -98,7 +98,6 @@ local function encontrarNPCsVivos()
     tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
     tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
     tentarAdicionar(workspace:FindFirstChild("RuntimeItems"))
-    tentarAdicionar(workspace:FindFirstChild("FortConstitution") and workspace.FortConstitution:FindFirstChild("Enemies"))
 
     local towns = workspace:FindFirstChild("Towns")
     if towns then
@@ -643,6 +642,31 @@ if player.Character then
 	teleportar()
 end
 player.CharacterAdded:Connect(teleportar)
+end)
+
+CriarBotao("esp Unicorn", function()
+-- Função para aplicar Highlight no Unicorn
+local function destacarUnicornio()
+    local unicorn = workspace:FindFirstChild("RuntimeItems")
+    if unicorn then
+        local alvo = unicorn:FindFirstChild("Unicorn")
+        if alvo and not alvo:FindFirstChild("Highlight") then
+            local h = Instance.new("Highlight")
+            h.FillColor = Color3.fromRGB(255, 105, 255) -- cor roxinha só pra destacar bem
+            h.OutlineColor = Color3.new(1, 1, 1)
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.Parent = alvo
+        end
+    end
+end
+
+-- Verifica repetidamente se o Unicorn apareceu
+task.spawn(function()
+    while true do
+        destacarUnicornio()
+        task.wait(2.5) -- checa a cada 1 segundo
+    end
+end)
 end)
 
 -- Botão de fechar
