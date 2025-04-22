@@ -257,7 +257,7 @@ end)
 
 CriarBotao("tp end", function()
 local config = {
-    vezesTeleporte = 200,          -- Quantidade de vezes que vai teleportar por posição
+    vezesTeleporte = 100,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,             -- Intervalo entre teleportes em segundos
     velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
