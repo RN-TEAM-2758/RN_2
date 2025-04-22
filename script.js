@@ -644,8 +644,82 @@ end
 player.CharacterAdded:Connect(teleportar)
 end)
 
+CriarBotao("auto colete", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
+local distanciaMax = 25
+
+local function obterParteCentral(obj)
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    elseif obj:IsA("BasePart") then
+        return obj
+    end
+    return nil
+end
+
+local function marcar(item, texto, cor)
+    local gui = item:FindFirstChild("DEBUG_GUI")
+    if not gui then
+        gui = Instance.new("BillboardGui")
+        gui.Name = "DEBUG_GUI"
+        gui.Size = UDim2.new(0, 100, 0, 40)
+        gui.StudsOffset = Vector3.new(0, 2, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = item
+
+        local label = Instance.new("TextLabel", gui)
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Name = "Texto"
+        label.TextColor3 = cor or Color3.new(1, 1, 1)
+        label.Text = texto
+    else
+        gui.Texto.Text = texto
+        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
+    end
+end
+
+while true do
+    for _, folder in pairs(workspace:GetDescendants()) do
+        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+            for _, item in pairs(folder:GetChildren()) do
+                local parte = obterParteCentral(item)
+                if parte then
+                    local dist = (humanoidRootPart.Position - parte.Position).Magnitude
+                    if dist <= distanciaMax then
+                        -- Tenta pegar até dar certo
+                        spawn(function()
+                            while true do
+                                local sucesso, erro = pcall(function()
+                                    remote:FireServer(item)
+                                end)
+
+                                if sucesso then
+                                    marcar(item, "", Color3.fromRGB(0, 255, 0))
+                                    print("Coletado com sucesso:", item.Name)
+                                    break
+                                else
+                                    marcar(item, "RN-TEAM", Color3.fromRGB(255, 255, 0))
+                                    print("RN-TEAM:", item.Name)
+                                end
+
+                                wait(1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    wait(0.7)
+end
+end)
+
 CriarBotao("Solda items", function()
---// Serviços
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
