@@ -758,8 +758,100 @@ while true do
             end
         end
     end
-    wait(0.3)
+    wait(0.7)
 end
+end)
+
+CriarBotao("Solda items", function()
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+--// Variáveis
+local RemoteEvent = ReplicatedStorage.Shared.Network.RemoteEvent.RequestWeld
+local platformPart = workspace.Train.Platform.Part
+local dragging, dragStart, startPos
+
+--// GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "ClosestItemWeldGUI"
+screenGui.ResetOnSpawn = false
+
+local button = Instance.new("TextButton")
+button.Parent = screenGui
+button.Size = UDim2.new(0, 140, 0, 40)
+button.Position = UDim2.new(0, 100, 0, 100)
+button.Text = "items Mais Próximo"
+button.BackgroundColor3 = Color3.fromRGB(40, 170, 255)
+button.TextColor3 = Color3.new(1,1,1)
+button.BorderSizePixel = 0
+button.AutoButtonColor = true
+button.Active = true
+
+--// Drag
+local function makeDraggable(gui)
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    gui.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                     startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(button)
+
+--// Função para encontrar item mais próximo
+local function getClosestItem()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local root = character:WaitForChild("HumanoidRootPart")
+    local closestItem = nil
+    local closestDistance = math.huge
+
+    for _, item in ipairs(workspace.RuntimeItems:GetChildren()) do
+        local itemPos
+
+        if item:IsA("BasePart") then
+            itemPos = item.Position
+        elseif item:IsA("Model") and item.PrimaryPart then
+            itemPos = item.PrimaryPart.Position
+        end
+
+        if itemPos then
+            local dist = (itemPos - root.Position).Magnitude
+            if dist < closestDistance then
+                closestDistance = dist
+                closestItem = item
+            end
+        end
+    end
+
+    return closestItem
+end
+
+--// Ao clicar, pegar item mais próximo e enviar para o RemoteEvent
+button.MouseButton1Click:Connect(function()
+    local closest = getClosestItem()
+    if closest then
+        RemoteEvent:FireServer(closest, platformPart)
+    else
+        warn("Nenhum item encontrado.")
+    end
+end)
 end)
 
 -- Botão de fechar
