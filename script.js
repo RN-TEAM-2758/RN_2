@@ -816,6 +816,80 @@ end
 makeDraggable(button)
 
 --// Função para encontrar item mais próximo
+--// Serviços
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+--// Variáveis
+local RemoteEvent = ReplicatedStorage.Shared.Network.RemoteEvent.RequestWeld
+local platformPart = workspace.Train.Platform.Part
+local dragging, dragStart, startPos
+
+--// GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "ClosestItemWeldGUI"
+screenGui.ResetOnSpawn = false
+
+local button = Instance.new("TextButton")
+button.Parent = screenGui
+button.Size = UDim2.new(0, 140, 0, 40)
+button.Position = UDim2.new(0, 100, 0, 100)
+button.Text = "items Mais Próximo"
+button.BackgroundColor3 = Color3.fromRGB(40, 170, 255)
+button.TextColor3 = Color3.new(1,1,1)
+button.BorderSizePixel = 0
+button.AutoButtonColor = true
+button.Active = true
+
+--// Drag
+local function makeDraggable(gui)
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    gui.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                     startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(button)
+
+--// Função para verificar se o item tem DragWeldConstraint
+local function hasDragWeldConstraint(item)
+    if item:IsA("BasePart") then
+        -- Verifica se a parte tem um DragWeldConstraint como filho direto
+        for _, child in ipairs(item:GetChildren()) do
+            if child:IsA("WeldConstraint") and child.Name == "DragWeldConstraint" then
+                return true
+            end
+        end
+    elseif item:IsA("Model") then
+        -- Verifica em todos os descendentes do Model
+        for _, descendant in ipairs(item:GetDescendants()) do
+            if descendant:IsA("WeldConstraint") and descendant.Name == "DragWeldConstraint" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--// Função para encontrar item mais próximo (ignorando os com DragWeldConstraint)
 local function getClosestItem()
     local character = player.Character or player.CharacterAdded:Wait()
     local root = character:WaitForChild("HumanoidRootPart")
@@ -823,19 +897,22 @@ local function getClosestItem()
     local closestDistance = math.huge
 
     for _, item in ipairs(workspace.RuntimeItems:GetChildren()) do
-        local itemPos
+        -- Ignora itens que já têm DragWeldConstraint
+        if not hasDragWeldConstraint(item) then
+            local itemPos
 
-        if item:IsA("BasePart") then
-            itemPos = item.Position
-        elseif item:IsA("Model") and item.PrimaryPart then
-            itemPos = item.PrimaryPart.Position
-        end
+            if item:IsA("BasePart") then
+                itemPos = item.Position
+            elseif item:IsA("Model") and item.PrimaryPart then
+                itemPos = item.PrimaryPart.Position
+            end
 
-        if itemPos then
-            local dist = (itemPos - root.Position).Magnitude
-            if dist < closestDistance then
-                closestDistance = dist
-                closestItem = item
+            if itemPos then
+                local dist = (itemPos - root.Position).Magnitude
+                if dist < closestDistance then
+                    closestDistance = dist
+                    closestItem = item
+                end
             end
         end
     end
@@ -849,7 +926,7 @@ button.MouseButton1Click:Connect(function()
     if closest then
         RemoteEvent:FireServer(closest, platformPart)
     else
-        warn("Nenhum item encontrado.")
+        warn("Nenhum item encontrado ou todos os itens já têm DragWeldConstraint.")
     end
 end)
 end)
