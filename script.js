@@ -645,6 +645,7 @@ player.CharacterAdded:Connect(teleportar)
 end)
 
 CriarBotao("Solda items", function()
+--// Serviços
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
