@@ -257,7 +257,7 @@ end)
 
 CriarBotao("tp end", function()
 local config = {
-    vezesTeleporte = 100,          -- Quantidade de vezes que vai teleportar por posição
+    vezesTeleporte = 120,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,             -- Intervalo entre teleportes em segundos
     velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
@@ -644,126 +644,7 @@ end
 player.CharacterAdded:Connect(teleportar)
 end)
 
-CriarBotao("esp Unicorn", function()
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- Lista de caminhos onde os NPCs podem aparecer
-local caminhosDeNPCs = {
-    workspace:FindFirstChild("RuntimeItems")
-}
-
--- Nome dos NPCs que devem receber ESP
-local nomesDeNPCs = {
-    "Unicorn"
-}
-
--- Função para adicionar ESP em um modelo
-local function adicionarESP(modelo)
-    if not modelo:FindFirstChild("Highlight") then
-        local highlight = Instance.new("Highlight")
-        highlight.FillColor = Color3.fromRGB(0, 0, 0)
-        highlight.OutlineColor = Color3.new(1, 1, 1)
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = modelo
-    end
-end
-
--- Verifica todos os caminhos frequentemente para adicionar ESP nos NPCs corretos
-RunService.RenderStepped:Connect(function()
-    for _, caminho in ipairs(caminhosDeNPCs) do
-        if caminho and caminho:IsDescendantOf(workspace) then
-            for _, npc in pairs(caminho:GetChildren()) do
-                if table.find(nomesDeNPCs, npc.Name) then
-                    adicionarESP(npc)
-                end
-            end
-        end
-    end
-end)
-end)
-
-CriarBotao("auto colete", function()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
-local distanciaMax = 50
-
--- Função pra obter a parte central do item
-local function obterParteCentral(obj)
-    if obj:IsA("Model") then
-        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-    elseif obj:IsA("BasePart") then
-        return obj
-    end
-    return nil
-end
-
--- Criar marcador visual flutuante (texto)
-local function marcar(item, texto, cor)
-    local gui = item:FindFirstChild("DEBUG_GUI")
-    if not gui then
-        gui = Instance.new("BillboardGui")
-        gui.Name = "DEBUG_GUI"
-        gui.Size = UDim2.new(0, 100, 0, 40)
-        gui.StudsOffset = Vector3.new(0, 2, 0)
-        gui.AlwaysOnTop = true
-        gui.Parent = item
-
-        local label = Instance.new("TextLabel", gui)
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Name = "Texto"
-        label.TextColor3 = cor or Color3.new(1, 1, 1)
-        label.Text = texto
-    else
-        gui.Texto.Text = texto
-        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
-    end
-end
-
--- Loop principal
-while true do
-    for _, folder in pairs(workspace:GetDescendants()) do
-        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
-            for _, item in pairs(folder:GetChildren()) do
-                local parte = obterParteCentral(item)
-                if parte then
-                    local dist = (humanoidRootPart.Position - parte.Position).Magnitude
-                    if dist <= distanciaMax then
-                        -- Tenta pegar até dar certo
-                        spawn(function()
-                            while true do
-                                local sucesso, erro = pcall(function()
-                                    remote:FireServer(item)
-                                end)
-
-                                if sucesso then
-                                    marcar(item, "", Color3.fromRGB(0, 255, 0))
-                                    print("Coletado com sucesso:", item.Name)
-                                    break
-                                else
-                                    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
-                                    print("Falha ao tentar pegar:", item.Name)
-                                end
-
-                                wait(1)
-                            end
-                        end)
-                    end
-                end
-            end
-        end
-    end
-    wait(0.7)
-end
-end)
-
 CriarBotao("Solda items", function()
---// Serviços
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
