@@ -649,6 +649,101 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
+local distanciaMax = 50
+
+-- Tabela para rastrear itens que já estão sendo processados
+local processandoItens = {}
+
+-- Função pra obter a parte central do item
+local function obterParteCentral(obj)
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    elseif obj:IsA("BasePart") then
+        return obj
+    end
+    return nil
+end
+
+-- Criar marcador visual flutuante (texto)
+local function marcar(item, texto, cor)
+    -- Verifica se o item ainda existe
+    if not item or not item.Parent then return end
+    
+    local gui = item:FindFirstChild("DEBUG_GUI")
+    if not gui then
+        gui = Instance.new("BillboardGui")
+        gui.Name = "DEBUG_GUI"
+        gui.Size = UDim2.new(0, 100, 0, 40)
+        gui.StudsOffset = Vector3.new(0, 2, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = item
+
+        local label = Instance.new("TextLabel", gui)
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Name = "Texto"
+        label.TextColor3 = cor or Color3.new(1, 1, 1)
+        label.Text = texto
+    else
+        gui.Texto.Text = texto
+        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
+    end
+end
+
+-- Função para limpar marcador
+local function limparMarcador(item)
+    if item and item:FindFirstChild("DEBUG_GUI") then
+        item.DEBUG_GUI:Destroy()
+    end
+end
+
+-- Loop principal
+while true do
+    for _, folder in pairs(workspace:GetDescendants()) do
+        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+            for _, item in pairs(folder:GetChildren()) do
+                -- Verifica se o item já está sendo processado
+                if not processandoItens[item] then
+                    local parte = obterParteCentral(item)
+                    if parte then
+                        local dist = (humanoidRootPart.Position - parte.Position).Magnitude
+                        if dist <= distanciaMax then
+                            processandoItens[item] = true
+                            
+                            spawn(function()
+                                while item and item.Parent do
+                                    local sucesso, erro = pcall(function()
+                                        remote:FireServer(item)
+                                    end)
+
+                                    if sucesso then
+                                        limparMarcador(item)
+                                        print("✅ Coletado:", item.Name)
+                                        break
+                                    else
+                                        marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+                                        print("🔄 Tentando coletar:", item.Name)
+                                    end
+
+                                    wait(1)
+                                end
+                                processandoItens[item] = nil
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    wait(0.3)
+end
+end)
+
+CriarBotao("auto item", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local distanciaMax = 25
 
 local function obterParteCentral(obj)
@@ -691,22 +786,24 @@ while true do
                 if parte then
                     local dist = (humanoidRootPart.Position - parte.Position).Magnitude
                     if dist <= distanciaMax then
-                        -- Tenta pegar até dar certo
                         spawn(function()
                             while true do
                                 local sucesso, erro = pcall(function()
-                                    remote:FireServer(item)
+                                    local args = { [1] = item }
+                                    game:GetService("ReplicatedStorage").Remotes.StoreItem:FireServer(unpack(args))
                                 end)
 
                                 if sucesso then
-                                    marcar(item, "", Color3.fromRGB(0, 255, 0))
-                                    print("Coletado com sucesso:", item.Name)
+                                    -- Remove o marcador DEBUG_GUI se existir
+                                    if item:FindFirstChild("DEBUG_GUI") then
+                                        item.DEBUG_GUI:Destroy()
+                                    end
+                                    print("✅ Coletado:", item.Name)
                                     break
                                 else
-                                    marcar(item, "RN-TEAM", Color3.fromRGB(255, 255, 0))
-                                    print("RN-TEAM:", item.Name)
+                                    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+                                    print("🔄 Tentando coletar:", item.Name, "| Erro:", erro)
                                 end
-
                                 wait(1)
                             end
                         end)
@@ -715,7 +812,7 @@ while true do
             end
         end
     end
-    wait(0.7)
+    wait(0.3)
 end
 end)
 
@@ -739,7 +836,7 @@ local button = Instance.new("TextButton")
 button.Parent = screenGui
 button.Size = UDim2.new(0, 140, 0, 40)
 button.Position = UDim2.new(0, 100, 0, 100)
-button.Text = "items Mais Próximo"
+button.Text = "Weld Mais Próximo"
 button.BackgroundColor3 = Color3.fromRGB(40, 170, 255)
 button.TextColor3 = Color3.new(1,1,1)
 button.BorderSizePixel = 0
