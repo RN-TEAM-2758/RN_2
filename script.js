@@ -651,93 +651,112 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
 local distanciaMax = 50
 
--- Tabela para rastrear itens que já estão sendo processados
-local processandoItens = {}
+-- Tabela para controle dos itens
+local itensProcessados = {}
+local conexoes = {}
 
--- Função pra obter a parte central do item
+-- Função para obter a parte central
 local function obterParteCentral(obj)
-    if obj:IsA("Model") then
-        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-    elseif obj:IsA("BasePart") then
-        return obj
-    end
-    return nil
+    return obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj:IsA("BasePart") and obj
 end
 
--- Criar marcador visual flutuante (texto)
+-- Função para criar/atualizar marcador
 local function marcar(item, texto, cor)
-    -- Verifica se o item ainda existe
-    if not item or not item.Parent then return end
+    if not item.Parent then return end
     
-    local gui = item:FindFirstChild("DEBUG_GUI")
-    if not gui then
-        gui = Instance.new("BillboardGui")
-        gui.Name = "DEBUG_GUI"
-        gui.Size = UDim2.new(0, 100, 0, 40)
-        gui.StudsOffset = Vector3.new(0, 2, 0)
-        gui.AlwaysOnTop = true
-        gui.Parent = item
+    local gui = item:FindFirstChild("DEBUG_GUI") or Instance.new("BillboardGui")
+    gui.Name = "DEBUG_GUI"
+    gui.Size = UDim2.new(0, 100, 0, 40)
+    gui.StudsOffset = Vector3.new(0, 2, 0)
+    gui.AlwaysOnTop = true
+    gui.Parent = item
 
-        local label = Instance.new("TextLabel", gui)
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Name = "Texto"
-        label.TextColor3 = cor or Color3.new(1, 1, 1)
-        label.Text = texto
-    else
-        gui.Texto.Text = texto
-        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
-    end
+    local label = gui:FindFirstChild("Texto") or Instance.new("TextLabel")
+    label.Name = "Texto"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.TextColor3 = cor or Color3.new(1, 1, 1)
+    label.Text = texto
+    label.Parent = gui
 end
 
--- Função para limpar marcador
-local function limparMarcador(item)
-    if item and item:FindFirstChild("DEBUG_GUI") then
-        item.DEBUG_GUI:Destroy()
+-- Função para tentar coletar um item
+local function tentarColetar(item)
+    if itensProcessados[item] then return end
+    itensProcessados[item] = true
+    
+    local parte = obterParteCentral(item)
+    if not parte then return end
+    
+    local function verificarDistancia()
+        if not humanoidRootPart or not parte then return false end
+        return (humanoidRootPart.Position - parte.Position).Magnitude <= distanciaMax
     end
-end
-
--- Loop principal
-while true do
-    for _, folder in pairs(workspace:GetDescendants()) do
-        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
-            for _, item in pairs(folder:GetChildren()) do
-                -- Verifica se o item já está sendo processado
-                if not processandoItens[item] then
-                    local parte = obterParteCentral(item)
-                    if parte then
-                        local dist = (humanoidRootPart.Position - parte.Position).Magnitude
-                        if dist <= distanciaMax then
-                            processandoItens[item] = true
-                            
-                            spawn(function()
-                                while item and item.Parent do
-                                    local sucesso, erro = pcall(function()
-                                        remote:FireServer(item)
-                                    end)
-
-                                    if sucesso then
-                                        limparMarcador(item)
-                                        print("✅ Coletado:", item.Name)
-                                        break
-                                    else
-                                        marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
-                                        print("🔄 Tentando coletar:", item.Name)
-                                    end
-
-                                    wait(1)
-                                end
-                                processandoItens[item] = nil
-                            end)
-                        end
-                    end
-                end
+    
+    if not verificarDistancia() then
+        itensProcessados[item] = nil
+        return
+    end
+    
+    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+    
+    local function coletar()
+        local sucesso = pcall(function()
+            remote:FireServer(item)
+        end)
+        
+        if sucesso then
+            if item.Parent then
+                item:FindFirstChild("DEBUG_GUI"):Destroy()
+            end
+            print("✅ Coletado:", item.Name)
+        else
+            if verificarDistancia() and item.Parent then
+                marcar(item, "Falhou, tentando novamente...", Color3.fromRGB(255, 100, 100))
+                task.delay(1, coletar)
+            else
+                itensProcessados[item] = nil
             end
         end
     end
-    wait(0.3)
+    
+    coletar()
 end
+
+-- Monitorar itens existentes
+local function monitorarPasta(pasta)
+    for _, item in pairs(pasta:GetChildren()) do
+        tentarColetar(item)
+    end
+    
+    conexoes[pasta] = pasta.ChildAdded:Connect(function(item)
+        tentarColetar(item)
+    end)
+end
+
+-- Encontrar e monitorar pastas RuntimeItems
+for _, folder in pairs(workspace:GetDescendants()) do
+    if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+        monitorarPasta(folder)
+    end
+end
+
+-- Conexão para quando novas pastas forem adicionadas
+conexoes.workspace = workspace.DescendantAdded:Connect(function(folder)
+    if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+        monitorarPasta(folder)
+    end
+end)
+
+-- Limpeza quando o script for encerrado
+game:GetService("Players").PlayerRemoving:Connect(function(p)
+    if p == player then
+        for _, conexao in pairs(conexoes) do
+            conexao:Disconnect()
+        end
+    end
+end)
 end)
 
 CriarBotao("auto item", function()
@@ -745,75 +764,121 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local distanciaMax = 25
+local remote = game:GetService("ReplicatedStorage").Remotes.StoreItem
 
+-- Tabelas para controle
+local itensProcessados = {}
+local conexoes = {}
+
+-- Função para obter a parte central
 local function obterParteCentral(obj)
-    if obj:IsA("Model") then
-        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-    elseif obj:IsA("BasePart") then
-        return obj
-    end
-    return nil
+    return obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj:IsA("BasePart") and obj
 end
 
+-- Função para criar/atualizar marcador
 local function marcar(item, texto, cor)
-    local gui = item:FindFirstChild("DEBUG_GUI")
-    if not gui then
-        gui = Instance.new("BillboardGui")
-        gui.Name = "DEBUG_GUI"
-        gui.Size = UDim2.new(0, 100, 0, 40)
-        gui.StudsOffset = Vector3.new(0, 2, 0)
-        gui.AlwaysOnTop = true
-        gui.Parent = item
+    if not item or not item.Parent then return end
+    
+    local gui = item:FindFirstChild("DEBUG_GUI") or Instance.new("BillboardGui")
+    gui.Name = "DEBUG_GUI"
+    gui.Size = UDim2.new(0, 100, 0, 40)
+    gui.StudsOffset = Vector3.new(0, 2, 0)
+    gui.AlwaysOnTop = true
+    gui.Parent = item
 
-        local label = Instance.new("TextLabel", gui)
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Name = "Texto"
-        label.TextColor3 = cor or Color3.new(1, 1, 1)
-        label.Text = texto
-    else
-        gui.Texto.Text = texto
-        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
-    end
+    local label = gui:FindFirstChild("Texto") or Instance.new("TextLabel")
+    label.Name = "Texto"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.TextColor3 = cor or Color3.new(1, 1, 1)
+    label.Text = texto
+    label.Parent = gui
 end
 
-while true do
-    for _, folder in pairs(workspace:GetDescendants()) do
-        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
-            for _, item in pairs(folder:GetChildren()) do
-                local parte = obterParteCentral(item)
-                if parte then
-                    local dist = (humanoidRootPart.Position - parte.Position).Magnitude
-                    if dist <= distanciaMax then
-                        spawn(function()
-                            while true do
-                                local sucesso, erro = pcall(function()
-                                    local args = { [1] = item }
-                                    game:GetService("ReplicatedStorage").Remotes.StoreItem:FireServer(unpack(args))
-                                end)
-
-                                if sucesso then
-                                    -- Remove o marcador DEBUG_GUI se existir
-                                    if item:FindFirstChild("DEBUG_GUI") then
-                                        item.DEBUG_GUI:Destroy()
-                                    end
-                                    print("✅ Coletado:", item.Name)
-                                    break
-                                else
-                                    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
-                                    print("🔄 Tentando coletar:", item.Name, "| Erro:", erro)
-                                end
-                                wait(1)
-                            end
-                        end)
-                    end
-                end
+-- Função para tentar coletar item
+local function tentarColetar(item)
+    if itensProcessados[item] then return end
+    itensProcessados[item] = true
+    
+    local parte = obterParteCentral(item)
+    if not parte then
+        itensProcessados[item] = nil
+        return
+    end
+    
+    local function verificarDistancia()
+        return (humanoidRootPart.Position - parte.Position).Magnitude <= distanciaMax
+    end
+    
+    if not verificarDistancia() then
+        itensProcessados[item] = nil
+        return
+    end
+    
+    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+    
+    local function coletar()
+        if not item or not item.Parent then
+            itensProcessados[item] = nil
+            return
+        end
+        
+        local sucesso, erro = pcall(function()
+            remote:FireServer(item)
+        end)
+        
+        if sucesso then
+            if item.Parent then
+                item:FindFirstChild("DEBUG_GUI"):Destroy()
+            end
+            print("✅ Coletado:", item.Name)
+        else
+            if verificarDistancia() and item.Parent then
+                marcar(item, "Tentando... ("..tostring(erro)..")", Color3.fromRGB(255, 100, 100))
+                task.delay(1, coletar)
+            else
+                itensProcessados[item] = nil
             end
         end
     end
-    wait(0.3)
+    
+    coletar()
 end
+
+-- Monitorar pasta RuntimeItems
+local function monitorarPasta(pasta)
+    for _, item in pairs(pasta:GetChildren()) do
+        tentarColetar(item)
+    end
+    
+    conexoes[pasta] = pasta.ChildAdded:Connect(function(item)
+        tentarColetar(item)
+    end)
+end
+
+-- Encontrar e monitorar pastas existentes
+for _, folder in pairs(workspace:GetDescendants()) do
+    if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+        monitorarPasta(folder)
+    end
+end
+
+-- Monitorar novas pastas que possam aparecer
+conexoes.workspace = workspace.DescendantAdded:Connect(function(folder)
+    if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+        monitorarPasta(folder)
+    end
+end)
+
+-- Limpeza ao sair
+game:GetService("Players").PlayerRemoving:Connect(function(p)
+    if p == player then
+        for _, conexao in pairs(conexoes) do
+            conexao:Disconnect()
+        end
+    end
+end)
 end)
 
 CriarBotao("Solda items", function()
@@ -836,7 +901,7 @@ local button = Instance.new("TextButton")
 button.Parent = screenGui
 button.Size = UDim2.new(0, 140, 0, 40)
 button.Position = UDim2.new(0, 100, 0, 100)
-button.Text = "items Mais Próximo"
+button.Text = "Weld Mais Próximo"
 button.BackgroundColor3 = Color3.fromRGB(40, 170, 255)
 button.TextColor3 = Color3.new(1,1,1)
 button.BorderSizePixel = 0
