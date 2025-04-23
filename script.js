@@ -649,7 +649,7 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
-local distanciaMax = 50
+local distanciaMax = 25
 
 local function obterParteCentral(obj)
     if obj:IsA("Model") then
@@ -837,4 +837,4 @@ end)
 -- Botão de fechar
 CriarBotao("❌ Fechar", function()
     ScreenGui:Destroy()
-end
+end)
