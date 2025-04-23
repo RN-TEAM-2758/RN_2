@@ -649,11 +649,86 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local remote = game.ReplicatedStorage.Packages.RemotePromise.Remotes.C_ActivateObject
-local distanciaMax = 50
+local distanciaMax = 25
 
--- Tabela para controle dos itens
-local itensProcessados = {}
+local function obterParteCentral(obj)
+    if obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    elseif obj:IsA("BasePart") then
+        return obj
+    end
+    return nil
+end
+
+local function marcar(item, texto, cor)
+    local gui = item:FindFirstChild("DEBUG_GUI")
+    if not gui then
+        gui = Instance.new("BillboardGui")
+        gui.Name = "DEBUG_GUI"
+        gui.Size = UDim2.new(0, 100, 0, 40)
+        gui.StudsOffset = Vector3.new(0, 2, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = item
+
+        local label = Instance.new("TextLabel", gui)
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Name = "Texto"
+        label.TextColor3 = cor or Color3.new(1, 1, 1)
+        label.Text = texto
+    else
+        gui.Texto.Text = texto
+        gui.Texto.TextColor3 = cor or Color3.new(1, 1, 1)
+    end
+end
+
+while true do
+    for _, folder in pairs(workspace:GetDescendants()) do
+        if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+            for _, item in pairs(folder:GetChildren()) do
+                local parte = obterParteCentral(item)
+                if parte then
+                    local dist = (humanoidRootPart.Position - parte.Position).Magnitude
+                    if dist <= distanciaMax then
+                        -- Tenta pegar até dar certo
+                        spawn(function()
+                            while true do
+                                local sucesso, erro = pcall(function()
+                                    remote:FireServer(item)
+                                end)
+
+                                if sucesso then
+                                    marcar(item, "", Color3.fromRGB(0, 255, 0))
+                                    print("Coletado com sucesso:", item.Name)
+                                    break
+                                else
+                                    marcar(item, "RN-TEAM", Color3.fromRGB(255, 255, 0))
+                                    print("RN-TEAM:", item.Name)
+                                end
+
+                                wait(1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    wait(0.7)
+end
+end)
+
+CriarBotao("txt", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local distanciaMax = 25
+local remote = game:GetService("ReplicatedStorage").Remotes.StoreItem
+
+-- Tabelas para controle
 local conexoes = {}
+local processosAtivos = {}
 
 -- Função para obter a parte central
 local function obterParteCentral(obj)
@@ -662,7 +737,7 @@ end
 
 -- Função para criar/atualizar marcador
 local function marcar(item, texto, cor)
-    if not item.Parent then return end
+    if not item or not item.Parent then return end
     
     local gui = item:FindFirstChild("DEBUG_GUI") or Instance.new("BillboardGui")
     gui.Name = "DEBUG_GUI"
@@ -681,75 +756,97 @@ local function marcar(item, texto, cor)
     label.Parent = gui
 end
 
--- Função para tentar coletar um item
-local function tentarColetar(item)
-    if itensProcessados[item] then return end
-    itensProcessados[item] = true
+-- Função para verificar se deve continuar tentando
+local function deveContinuar(item, parte)
+    return item and item.Parent and parte and parte.Parent and
+           (humanoidRootPart.Position - parte.Position).Magnitude <= distanciaMax
+end
+
+-- Função principal para tentar coletar continuamente
+local function iniciarColeta(item)
+    if processosAtivos[item] then return end
+    processosAtivos[item] = true
     
     local parte = obterParteCentral(item)
-    if not parte then return end
-    
-    local function verificarDistancia()
-        if not humanoidRootPart or not parte then return false end
-        return (humanoidRootPart.Position - parte.Position).Magnitude <= distanciaMax
-    end
-    
-    if not verificarDistancia() then
-        itensProcessados[item] = nil
+    if not parte then
+        processosAtivos[item] = nil
         return
     end
     
-    marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
-    
     local function coletar()
-        local sucesso = pcall(function()
-            remote:FireServer(item)
-        end)
-        
-        if sucesso then
-            if item.Parent then
-                item:FindFirstChild("DEBUG_GUI"):Destroy()
-            end
-            print("✅ Coletado:", item.Name)
-        else
-            if verificarDistancia() and item.Parent then
-                marcar(item, "Falhou, tentando novamente...", Color3.fromRGB(255, 100, 100))
-                task.delay(1, coletar)
+        while deveContinuar(item, parte) do
+            local sucesso, erro = pcall(function()
+                remote:FireServer(item)
+            end)
+            
+            if sucesso then
+                marcar(item, "Coletado!", Color3.fromRGB(0, 255, 0))
+                print("✅ Coletado:", item.Name)
             else
-                itensProcessados[item] = nil
+                marcar(item, "Tentando...", Color3.fromRGB(255, 255, 0))
+                print("🔄 Tentando coletar:", item.Name, "| Erro:", erro)
             end
+            
+            task.wait(0.5) -- Intervalo entre tentativas
         end
+        
+        -- Limpeza quando sair do alcance
+        if item and item.Parent then
+            item:FindFirstChild("DEBUG_GUI"):Destroy()
+        end
+        processosAtivos[item] = nil
     end
     
-    coletar()
+    task.spawn(coletar)
 end
 
--- Monitorar itens existentes
+-- Monitorar pastas RuntimeItems
 local function monitorarPasta(pasta)
     for _, item in pairs(pasta:GetChildren()) do
-        tentarColetar(item)
+        task.spawn(iniciarColeta, item)
     end
     
     conexoes[pasta] = pasta.ChildAdded:Connect(function(item)
-        tentarColetar(item)
+        task.spawn(iniciarColeta, item)
     end)
 end
 
--- Encontrar e monitorar pastas RuntimeItems
+-- Iniciar monitoramento
 for _, folder in pairs(workspace:GetDescendants()) do
     if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
         monitorarPasta(folder)
     end
 end
 
--- Conexão para quando novas pastas forem adicionadas
+-- Monitorar novas pastas
 conexoes.workspace = workspace.DescendantAdded:Connect(function(folder)
     if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
         monitorarPasta(folder)
     end
+end
+
+-- Atualizar quando o jogador se mover
+local ultimaPosicao = humanoidRootPart.Position
+conexoes.movimento = game:GetService("RunService").Heartbeat:Connect(function()
+    local posicaoAtual = humanoidRootPart.Position
+    if (posicaoAtual - ultimaPosicao).Magnitude > 1 then
+        ultimaPosicao = posicaoAtual
+        
+        -- Verificar itens próximos novamente
+        for _, folder in pairs(workspace:GetDescendants()) do
+            if folder:IsA("Folder") and folder.Name == "RuntimeItems" then
+                for _, item in pairs(folder:GetChildren()) do
+                    local parte = obterParteCentral(item)
+                    if parte and (posicaoAtual - parte.Position).Magnitude <= distanciaMax then
+                        task.spawn(iniciarColeta, item)
+                    end
+                end
+            end
+        end
+    end
 end)
 
--- Limpeza quando o script for encerrado
+-- Limpeza ao sair
 game:GetService("Players").PlayerRemoving:Connect(function(p)
     if p == player then
         for _, conexao in pairs(conexoes) do
@@ -759,12 +856,8 @@ game:GetService("Players").PlayerRemoving:Connect(function(p)
 end)
 end)
 
-CriarBotao("auto item", function()
-
-end)
 
 CriarBotao("Solda items", function()
---// Serviços
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -783,7 +876,7 @@ local button = Instance.new("TextButton")
 button.Parent = screenGui
 button.Size = UDim2.new(0, 140, 0, 40)
 button.Position = UDim2.new(0, 100, 0, 100)
-button.Text = "Weld Mais Próximo"
+button.Text = "items Mais Próximo"
 button.BackgroundColor3 = Color3.fromRGB(40, 170, 255)
 button.TextColor3 = Color3.new(1,1,1)
 button.BorderSizePixel = 0
@@ -882,4 +975,4 @@ end)
 -- Botão de fechar
 CriarBotao("❌ Fechar", function()
     ScreenGui:Destroy()
-end)
+end
