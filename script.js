@@ -38,7 +38,7 @@ local Panel = Instance.new("ScrollingFrame")
 Panel.Size = UDim2.new(0, 250, 0, 300)
 Panel.Position = UDim2.new(0, 80, 0.5, -150)
 Panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Panel.CanvasSize = UDim2.new(0, 0, 0, 0) -- Auto-ajustável
+Panel.CanvasSize = UDim2.new(0, 0, 0, 0)
 Panel.ScrollBarThickness = 6
 Panel.ScrollingDirection = Enum.ScrollingDirection.Y
 Panel.Visible = true
@@ -55,8 +55,77 @@ local function UpdateCanvas()
 end
 UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
 
--- Criador de botões
-function CriarBotao(nome, func)
+-- Sistema de Abas
+local TabButtonsFrame = Instance.new("Frame")
+TabButtonsFrame.Size = UDim2.new(0, 250, 0, 30)
+TabButtonsFrame.Position = UDim2.new(0, 300, 0.5, -270)
+TabButtonsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TabButtonsFrame.Parent = ScreenGui
+
+local TabButtonsLayout = Instance.new("UIListLayout", TabButtonsFrame)
+TabButtonsLayout.FillDirection = Enum.FillDirection.Horizontal
+TabButtonsLayout.Padding = UDim.new(0, 0)
+
+-- Dicionário para armazenar os frames de cada aba
+local Tabs = {}
+local CurrentTab = nil
+
+-- Função para criar uma nova aba
+function CreateTab(tabName)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(0.5, 0, 1, 0)
+    TabButton.Text = tabName
+    TabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TabButton.TextColor3 = Color3.new(1, 1, 1)
+    TabButton.Font = Enum.Font.Gotham
+    TabButton.Parent = TabButtonsFrame
+    
+    local TabFrame = Instance.new("Frame")
+    TabFrame.Size = UDim2.new(1, 0, 1, 0)
+    TabFrame.BackgroundTransparency = 1
+    TabFrame.Visible = false
+    TabFrame.Parent = Panel
+    
+    Tabs[tabName] = {
+        Button = TabButton,
+        Frame = TabFrame,
+        UIList = Instance.new("UIListLayout", TabFrame)
+    }
+    
+    Tabs[tabName].UIList.Padding = UDim.new(0, 5)
+    
+    TabButton.MouseButton1Click:Connect(function()
+        for name, tab in pairs(Tabs) do
+            tab.Frame.Visible = (name == tabName)
+            tab.Button.BackgroundColor3 = (name == tabName) and Color3.fromRGB(70, 70, 70) or Color3.fromRGB(50, 50, 50)
+        end
+        CurrentTab = tabName
+    end)
+    
+    if not CurrentTab then
+        CurrentTab = tabName
+        TabButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        TabFrame.Visible = true
+    end
+    
+    return TabFrame
+end
+
+-- Criar abas principais
+CreateTab("Principal")
+CreateTab("Teleportes")
+CreateTab("NPCs")
+CreateTab("Itens")
+CreateTab("Visual")
+CreateTab("Outros")
+
+-- Função para criar botão em uma aba específica
+function CriarBotao(tabName, nome, func)
+    if not Tabs[tabName] then
+        warn("Aba '"..tabName.."' não existe!")
+        return
+    end
+    
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 40)
     btn.Text = nome
@@ -64,7 +133,7 @@ function CriarBotao(nome, func)
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.Gotham
     btn.TextScaled = true
-    btn.Parent = Panel
+    btn.Parent = Tabs[tabName].Frame
     btn.MouseButton1Click:Connect(func)
 end
 
@@ -73,10 +142,543 @@ local minimized = false
 FloatButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     Panel.Visible = not minimized
+    TabButtonsFrame.Visible = not minimized
     FloatButton.Text = minimized and "🡺" or "🡸"
 end)
 
-CriarBotao("aimbot", function()
+-- ====== ORGANIZANDO OS BOTÕES NAS ABAS ======
+
+-- ABA PRINCIPAL
+CriarBotao("Principal", "🌞 Fullbright", function()
+    Lighting.GlobalShadows = false
+    Lighting.Brightness = 10
+end)
+
+CriarBotao("Principal", "Noclip", function()
+    local Player = game.Players.LocalPlayer
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+
+    local function Noclip()
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    game:GetService("RunService").Stepped:Connect(Noclip)
+end)
+
+CriarBotao("Principal", "❌ Fechar", function()
+    ScreenGui:Destroy()
+end)
+
+-- ABA TELEPORTES
+CriarBotao("Teleportes", "tp end", function()
+local config = {
+    vezesTeleporte = 120,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,             -- Intervalo entre teleportes em segundos
+    velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-425, 28, -49041)
+    }
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("auto kill final", function()
+local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
+local ativo = false
+
+-- VARIÁVEIS
+local player = game:GetService("Players").LocalPlayer
+local cam = workspace.CurrentCamera
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local cameraOriginalSubject = humanoid
+local cameraOriginalType = Enum.CameraType.Custom
+
+local listaNPCs = {}
+local conexao
+
+-- FUNÇÕES
+local function resetarCamera()
+    cam.CameraSubject = cameraOriginalSubject
+    cam.CameraType = cameraOriginalType
+end
+
+function desligar()
+    ativo = false
+    if conexao then
+        conexao:Disconnect()
+        conexao = nil
+    end
+    resetarCamera()
+    print("Desligado e câmera restaurada.")
+end
+
+local function seguirNPC(npc)
+    local hum = npc:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    cam.CameraSubject = hum
+    cam.CameraType = Enum.CameraType.Custom
+
+    conexao = game:GetService("RunService").Heartbeat:Connect(function()
+        if not ativo then
+            desligar()
+            return
+        end
+
+        if hum.Health <= 0 or not npc:IsDescendantOf(workspace) then
+            conexao:Disconnect()
+            conexao = nil
+            task.wait(0.5)
+            table.remove(listaNPCs, 1)
+            if #listaNPCs > 0 then
+                seguirNPC(listaNPCs[1])
+            else
+                desligar()
+            end
+        end
+    end)
+end
+
+function ligar()
+    if ativo then return end
+    ativo = true
+
+    listaNPCs = caminhoNPCs:GetChildren()
+    if #listaNPCs > 0 then
+        seguirNPC(listaNPCs[1])
+        print("Ligado!")
+    else
+        warn("Nenhum NPC encontrado.")
+        desligar()
+    end
+end
+
+-- BOTÃO NA TELA
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
+
+local botao = Instance.new("TextButton")
+botao.Size = UDim2.new(0, 140, 0, 50)
+botao.Position = UDim2.new(0, 10, 1, -60)
+botao.Text = "Ativar"
+botao.TextScaled = true
+botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
+botao.TextColor3 = Color3.new(1, 1, 1)
+botao.Parent = gui
+
+botao.MouseButton1Click:Connect(function()
+    if ativo then
+        desligar()
+        botao.Text = "Ativar"
+        botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
+    else
+        ligar()
+        botao.Text = "Desligar"
+        botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+    end
+end)
+end)
+
+CriarBotao("Teleportes", "TeslaLab", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Configurações
+local TOTAL_TELEPORTES = 30
+local TELEPORTES_PARA_SENTAR = 15  -- Quando chegar no 15º teleporte, senta
+local INTERVALO_TELEPORTES = 0.1
+
+-- Verificação do personagem
+repeat
+    character = player.Character
+    if not character then
+        character = player.CharacterAdded:Wait()
+    end
+until character and character:FindFirstChild("HumanoidRootPart")
+
+-- Função de teleporte (original)
+local function teleportarParaTeslaLab()
+    local teslaLab = workspace:FindFirstChild("TeslaLab")
+    if not teslaLab then
+        warn("TeslaLab não encontrado!")
+        return false
+    end
+
+    local spawnPoint = teslaLab:FindFirstChild("SpawnPoint") or teslaLab:GetModelCFrame()
+    local destino = typeof(spawnPoint) == "Instance" and spawnPoint.CFrame or spawnPoint
+    
+    character:SetPrimaryPartCFrame(destino + Vector3.new(0, 3, 0))
+    return true
+end
+
+-- SEU SCRIPT ORIGINAL DE SENTAR (sem modificações)
+local function sentarPersonagem()
+    local maxDistance = 200
+
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        seat:Sit(character:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Sistema principal de teleportes
+for i = 1, TOTAL_TELEPORTES do
+    teleportarParaTeslaLab()
+    
+    -- Ativa o seu script original no 15º teleporte
+    if i == TELEPORTES_PARA_SENTAR then
+        sentarPersonagem()  -- Chama sua função original sem modificações
+    end
+    
+    task.wait(INTERVALO_TELEPORTES)
+end
+
+print("Processo completo! Total de teleportes: "..TOTAL_TELEPORTES)
+end)
+
+CriarBotao("Teleportes", "tp no trem", function()
+local player = game.Players.LocalPlayer
+local function teleportar()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	local seat = workspace:WaitForChild("Train"):WaitForChild("TrainControls")
+		:WaitForChild("ConductorSeat"):WaitForChild("VehicleSeat")
+
+	-- Teleporta o jogador um pouco acima do assento
+	hrp.CFrame = seat.CFrame + Vector3.new(0, 3, 0)
+end
+
+-- Quando o personagem spawna, teleporta
+if player.Character then
+	teleportar()
+end
+player.CharacterAdded:Connect(teleportar)
+end)
+
+CriarBotao("Teleportes", "forte", function()
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Configurações
+local player = Players.LocalPlayer
+local VELOCIDADE = 1200
+local ALTURA = 9
+local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
+
+-- Variáveis
+local personagem
+local rootPart
+local movendo = true
+local ultimoZ = POSICAO_INICIAL.Z
+local brainJarDetectado = false
+
+-- Prepara personagem com física correta
+local function prepararPersonagem()
+    personagem = player.Character or player.CharacterAdded:Wait()
+    rootPart = personagem:WaitForChild("HumanoidRootPart")
+    rootPart.Anchored = false
+    rootPart.AssemblyLinearVelocity = Vector3.new()
+    rootPart.AssemblyAngularVelocity = Vector3.new()
+    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
+    task.wait(0.5)
+    ultimoZ = rootPart.Position.Z
+end
+
+-- Movimento contínuo
+local function moverPersonagem()
+    if movendo then
+        ultimoZ = ultimoZ - VELOCIDADE * 0.02
+        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
+    end
+end
+
+-- Sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo()
+    local maxDistance = 1000
+    local closestSeat = nil
+    local shortestDistance = maxDistance
+
+    for _, seat in ipairs(workspace:GetDescendants()) do
+        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+            local distance = (seat.Position - rootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestSeat = seat
+            end
+        end
+    end
+
+    if closestSeat then
+        personagem:MoveTo(closestSeat.Position)
+        task.wait(0.5)
+        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Retorna uma parte válida do modelo para usar como referência de posição
+local function obterParteDoModel(model)
+    if model:IsA("Model") then
+        if model.PrimaryPart then
+            return model.PrimaryPart
+        else
+            for _, parte in ipairs(model:GetDescendants()) do
+                if parte:IsA("BasePart") then
+                    return parte
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Verifica se BrainJar apareceu e está próximo
+local function verificarBrainJar()
+    if brainJarDetectado then return end
+    local runtime = workspace:FindFirstChild("RuntimeItems")
+    if runtime then
+        local cannon = runtime:FindFirstChild("Cannon")
+        local parteDoCannon = obterParteDoModel(cannon)
+
+        if parteDoCannon then
+            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
+            if distancia <= 300 then
+                brainJarDetectado = true
+                movendo = false
+                sentarNoAssentoMaisProximo()
+            end
+        end
+    end
+end
+
+-- Loop principal
+local function iniciar()
+    prepararPersonagem()
+
+    local conexao
+    conexao = RunService.Heartbeat:Connect(function()
+        moverPersonagem()
+        verificarBrainJar()
+    end)
+
+    personagem.Destroying:Connect(function()
+        conexao:Disconnect()
+    end)
+end
+
+-- Inicialização
+player.CharacterAdded:Connect(iniciar)
+if player.Character then iniciar() end
+
+-- Tecla P para ativar/desativar movimento manualmente
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.P then
+        movendo = not movendo
+    end
+end)
+end)
+
+CriarBotao("Teleportes", "castelo", function()
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Configurações
+local player = Players.LocalPlayer
+local VELOCIDADE = 1800
+local ALTURA = 9
+local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
+
+-- Variáveis
+local personagem
+local rootPart
+local movendo = true
+local ultimoZ = POSICAO_INICIAL.Z
+local brainJarDetectado = false
+
+-- Prepara personagem com física correta
+local function prepararPersonagem()
+    personagem = player.Character or player.CharacterAdded:Wait()
+    rootPart = personagem:WaitForChild("HumanoidRootPart")
+    rootPart.Anchored = false
+    rootPart.AssemblyLinearVelocity = Vector3.new()
+    rootPart.AssemblyAngularVelocity = Vector3.new()
+    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
+    task.wait(0.5)
+    ultimoZ = rootPart.Position.Z
+end
+
+-- Movimento contínuo
+local function moverPersonagem()
+    if movendo then
+        ultimoZ = ultimoZ - VELOCIDADE * 0.02
+        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
+    end
+end
+
+-- Sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo()
+    local maxDistance = 1000
+    local closestSeat = nil
+    local shortestDistance = maxDistance
+
+    for _, seat in ipairs(workspace:GetDescendants()) do
+        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+            local distance = (seat.Position - rootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestSeat = seat
+            end
+        end
+    end
+
+    if closestSeat then
+        personagem:MoveTo(closestSeat.Position)
+        task.wait(0.5)
+        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Retorna uma parte válida do modelo para usar como referência de posição
+local function obterParteDoModel(model)
+    if model:IsA("Model") then
+        if model.PrimaryPart then
+            return model.PrimaryPart
+        else
+            for _, parte in ipairs(model:GetDescendants()) do
+                if parte:IsA("BasePart") then
+                    return parte
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Verifica se BrainJar apareceu e está próximo
+local function verificarBrainJar()
+    if brainJarDetectado then return end
+    local runtime = workspace:FindFirstChild("RuntimeItems")
+    if runtime then
+        local cannon = runtime:FindFirstChild("Vampire Knife")
+        local parteDoCannon = obterParteDoModel(cannon)
+
+        if parteDoCannon then
+            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
+            if distancia <= 300 then
+                brainJarDetectado = true
+                movendo = false
+                sentarNoAssentoMaisProximo()
+            end
+        end
+    end
+end
+
+-- Loop principal
+local function iniciar()
+    prepararPersonagem()
+
+    local conexao
+    conexao = RunService.Heartbeat:Connect(function()
+        moverPersonagem()
+        verificarBrainJar()
+    end)
+
+    personagem.Destroying:Connect(function()
+        conexao:Disconnect()
+    end)
+end
+
+-- Inicialização
+player.CharacterAdded:Connect(iniciar)
+if player.Character then iniciar() end
+
+-- Tecla P para ativar/desativar movimento manualmente
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.P then
+        movendo = not movendo
+    end
+end)
+end)
+
+-- ABA NPCS
+CriarBotao("NPCs", "aimbot", function()
 local camera = game.Workspace.CurrentCamera
 local localplayer = game:GetService("Players").LocalPlayer
 
@@ -218,99 +820,199 @@ botao.MouseButton1Click:Connect(function()
 end)
 end)
 
-CriarBotao("🌞 Fullbright", function()
-    Lighting.GlobalShadows = false
-    Lighting.Brightness = 10
-end)
+CriarBotao("NPCs", "lock npc", function()
+local caminhosNPCs = {}
 
-CriarBotao("ESP Básico", function()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            if not p.Character:FindFirstChild("Highlight") then
-                local h = Instance.new("Highlight")
-                h.FillColor = Color3.fromRGB(0, 0, 0)
-                h.OutlineColor = Color3.new(1, 1, 1)
-                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                h.Parent = p.Character
+local function tentarAdicionar(caminho)
+    if caminho then
+        table.insert(caminhosNPCs, caminho)
+    end
+end
+
+-- VARIÁVEIS
+local player = game:GetService("Players").LocalPlayer
+local cam = workspace.CurrentCamera
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local cameraOriginalSubject = humanoid
+local cameraOriginalType = Enum.CameraType.Custom
+
+local ativo = false
+local listaNPCs = {}
+local conexao
+local verificadorLoop
+
+-- FUNÇÕES
+local function resetarCamera()
+    cam.CameraSubject = cameraOriginalSubject
+    cam.CameraType = cameraOriginalType
+end
+
+local function desligar()
+    ativo = false
+    if conexao then
+        conexao:Disconnect()
+        conexao = nil
+    end
+    if verificadorLoop then
+        verificadorLoop:Disconnect()
+        verificadorLoop = nil
+    end
+    resetarCamera()
+    print("Desligado e câmera restaurada.")
+end
+
+local function seguirNPC(npc)
+    local hum = npc:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    cam.CameraSubject = hum
+    cam.CameraType = Enum.CameraType.Custom
+
+    conexao = game:GetService("RunService").Heartbeat:Connect(function()
+        if not ativo then
+            desligar()
+            return
+        end
+
+        if hum.Health <= 0 or not npc:IsDescendantOf(workspace) then
+            conexao:Disconnect()
+            conexao = nil
+            task.wait(0.5)
+            table.remove(listaNPCs, 1)
+            if #listaNPCs > 0 then
+                seguirNPC(listaNPCs[1])
+            else
+                resetarCamera()
+                print("Esperando novos NPCs vivos...")
+            end
+        end
+    end)
+end
+
+local function encontrarNPCsVivos()
+    caminhosNPCs = {}
+
+    tentarAdicionar(workspace:FindFirstChild("RuntimeEnemies"))
+    tentarAdicionar(workspace:FindFirstChild("InimigosExtras"))
+
+    local towns = workspace:FindFirstChild("Towns")
+    if towns then
+        local function getZombies(townName)
+            local town = towns:FindFirstChild(townName)
+            if town then
+                local part = town:FindFirstChild("ZombiePart")
+                if part then
+                    return part:FindFirstChild("Zombies")
+                end
+            end
+            return nil
+        end
+
+        tentarAdicionar(getZombies("LargeTownTemplate"))
+        tentarAdicionar(getZombies("SmallTownTemplate"))
+        tentarAdicionar(getZombies("MediumTownTemplate"))
+
+        for _, cidade in pairs(towns:GetChildren()) do
+            local part = cidade:FindFirstChild("ZombiePart")
+            if part then
+                local z = part:FindFirstChild("Zombies")
+                if z then
+                    tentarAdicionar(z)
+                end
             end
         end
     end
-end)
 
-CriarBotao("Apagar Casas", function()
-    local function deleteColorWalls()
-        local count = 0
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj.Name == "ColorWall" then
-                obj:Destroy()
-                count += 1
+    local vivos = {}
+    for _, caminho in ipairs(caminhosNPCs) do
+        if caminho and caminho:IsDescendantOf(workspace) then
+            for _, npc in ipairs(caminho:GetChildren()) do
+                local hum = npc:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    table.insert(vivos, npc)
+                end
             end
         end
-        print("Apagados:", count)
+    end
+    return vivos
+end
+
+local function ligar()
+    if ativo then return end
+    ativo = true
+
+    listaNPCs = encontrarNPCsVivos() or {}
+    if #listaNPCs > 0 then
+        seguirNPC(listaNPCs[1])
+        print("Ligado!")
+    else
+        print("Nenhum NPC vivo encontrado. Aguardando...")
     end
 
-    while true do
-        deleteColorWalls()
-        task.wait(5)
-    end
-end)
-
-CriarBotao("tp end", function()
-local config = {
-    vezesTeleporte = 120,          -- Quantidade de vezes que vai teleportar por posição
-    intervalo = 0,             -- Intervalo entre teleportes em segundos
-    velocidade = 0,               -- 0 para teleporte instantâneo, >0 para movimento suave
-    posicoes = {
-        Vector3.new(-425, 28, -49041)
-    }
-}
-
--- Função para mover/teleportar
-local function moverParaPosicao(rootPart, destino)
-    if config.velocidade > 0 then
-        local distancia = (destino - rootPart.Position).Magnitude
-        local duracao = distancia / config.velocidade
-        local inicio = tick()
-        local posInicial = rootPart.Position
-        
-        while tick() - inicio < duracao do
-            local progresso = (tick() - inicio) / duracao
-            rootPart.Position = posInicial:Lerp(destino, progresso)
-            game:GetService("RunService").Heartbeat:Wait()
+    verificadorLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        if not ativo then return end
+        if not conexao and (#listaNPCs == 0) then
+            local novosNPCs = encontrarNPCsVivos()
+            if novosNPCs and #novosNPCs > 0 then
+                listaNPCs = novosNPCs
+                seguirNPC(listaNPCs[1])
+                print("Novos NPCs encontrados!")
+            end
         end
-    end
-    rootPart.CFrame = CFrame.new(destino)
+    end)
 end
 
--- Função principal
-local function iniciarTeleporte()
-    local character = game.Players.LocalPlayer.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    for _, posicao in ipairs(config.posicoes) do
-        for i = 1, config.vezesTeleporte do
-            moverParaPosicao(humanoidRootPart, posicao)
-            wait(config.intervalo)
-        end
-    end
-end
+-- BOTÃO NA TELA (ARRASTÁVEL)
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
+gui.Name = "NPCSeguidorGUI"
 
--- Inicia o teleporte quando o personagem spawnar
-game.Players.LocalPlayer.CharacterAdded:Connect(function()
-    wait(1) -- Espera o personagem carregar completamente
-    iniciarTeleporte()
+local botao = Instance.new("TextButton")
+botao.Size = UDim2.new(0, 140, 0, 50)
+botao.Position = UDim2.new(0, 10, 1, -60)
+botao.Text = "Ativar"
+botao.TextScaled = true
+botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
+botao.TextColor3 = Color3.new(1, 1, 1)
+botao.Parent = gui
+
+-- Arrastar botão na tela (para celular)
+local dragging, offset
+botao.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        offset = input.Position - botao.AbsolutePosition
+    end
 end)
 
--- Se já tiver um personagem, inicia imediatamente
-if game.Players.LocalPlayer.Character then
-    iniciarTeleporte()
-end
+botao.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
 end)
 
-CriarBotao("auto kill final", function()
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        local newPos = input.Position - offset
+        botao.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+    end
+end)
+
+botao.MouseButton1Click:Connect(function()
+    if ativo then
+        desligar()
+        botao.Text = "Ativar"
+        botao.BackgroundColor3 = Color3.fromRGB(30, 200, 30)
+    else
+        ligar()
+        botao.Text = "Desligar"
+        botao.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+    end
+end)
+end)
+
+CriarBotao("NPCs", "auto kill final", function()
 local caminhoNPCs = workspace.Baseplates.FinalBasePlate.OutlawBase.StandaloneZombiePart.Zombies
 local ativo = false
 
@@ -615,36 +1317,8 @@ botao.MouseButton1Click:Connect(function()
 end)
 end)
 
-CriarBotao("zom", function()
-local player = game:GetService("Players").LocalPlayer
-
-player.CameraMode = Enum.CameraMode.Classic
-
-player.CameraMinZoomDistance = 0.5
-player.CameraMaxZoomDistance = 30
-end)
-
-CriarBotao("tp no trem", function()
-local player = game.Players.LocalPlayer
-local function teleportar()
-	local character = player.Character or player.CharacterAdded:Wait()
-	local hrp = character:WaitForChild("HumanoidRootPart")
-
-	local seat = workspace:WaitForChild("Train"):WaitForChild("TrainControls")
-		:WaitForChild("ConductorSeat"):WaitForChild("VehicleSeat")
-
-	-- Teleporta o jogador um pouco acima do assento
-	hrp.CFrame = seat.CFrame + Vector3.new(0, 3, 0)
-end
-
--- Quando o personagem spawna, teleporta
-if player.Character then
-	teleportar()
-end
-player.CharacterAdded:Connect(teleportar)
-end)
-
-CriarBotao("auto colete", function()
+-- ABA ITENS
+CriarBotao("Itens", "auto colete", function()
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
@@ -715,11 +1389,11 @@ while true do
             end
         end
     end
-    wait(0.7)
+    wait(0.2)
 end
 end)
 
-CriarBotao("Solda items", function()
+CriarBotao("Itens", "Solda items", function()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -834,337 +1508,71 @@ button.MouseButton1Click:Connect(function()
 end)
 end)
 
-CriarBotao("TeslaLab", function()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-
--- Configurações
-local TOTAL_TELEPORTES = 30
-local TELEPORTES_PARA_SENTAR = 15  -- Quando chegar no 15º teleporte, senta
-local INTERVALO_TELEPORTES = 0.1
-
--- Verificação do personagem
-repeat
-    character = player.Character
-    if not character then
-        character = player.CharacterAdded:Wait()
-    end
-until character and character:FindFirstChild("HumanoidRootPart")
-
--- Função de teleporte (original)
-local function teleportarParaTeslaLab()
-    local teslaLab = workspace:FindFirstChild("TeslaLab")
-    if not teslaLab then
-        warn("TeslaLab não encontrado!")
-        return false
-    end
-
-    local spawnPoint = teslaLab:FindFirstChild("SpawnPoint") or teslaLab:GetModelCFrame()
-    local destino = typeof(spawnPoint) == "Instance" and spawnPoint.CFrame or spawnPoint
-    
-    character:SetPrimaryPartCFrame(destino + Vector3.new(0, 3, 0))
-    return true
-end
-
--- SEU SCRIPT ORIGINAL DE SENTAR (sem modificações)
-local function sentarPersonagem()
-    local maxDistance = 200
-
-    local function getNearestSeat()
-        local closestSeat = nil
-        local shortestDistance = maxDistance
-
-        for _, seat in ipairs(workspace:GetDescendants()) do
-            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
-                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestSeat = seat
-                end
+-- ABA VISUAL
+CriarBotao("Visual", "ESP jogador", function()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            if not p.Character:FindFirstChild("Highlight") then
+                local h = Instance.new("Highlight")
+                h.FillColor = Color3.fromRGB(0, 0, 0)
+                h.OutlineColor = Color3.new(1, 1, 1)
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                h.Parent = p.Character
             end
         end
-
-        return closestSeat
     end
-
-    local seat = getNearestSeat()
-    if seat then
-        character:MoveTo(seat.Position)
-        task.wait(0.5)
-        seat:Sit(character:FindFirstChildOfClass("Humanoid"))
-    else
-        warn("Nenhum assento próximo encontrado!")
-    end
-end
-
--- Sistema principal de teleportes
-for i = 1, TOTAL_TELEPORTES do
-    teleportarParaTeslaLab()
-    
-    -- Ativa o seu script original no 15º teleporte
-    if i == TELEPORTES_PARA_SENTAR then
-        sentarPersonagem()  -- Chama sua função original sem modificações
-    end
-    
-    task.wait(INTERVALO_TELEPORTES)
-end
-
-print("Processo completo! Total de teleportes: "..TOTAL_TELEPORTES)
 end)
 
-CriarBotao("forte", function()
--- Serviços
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
--- Configurações
-local player = Players.LocalPlayer
-local VELOCIDADE = 1700
-local ALTURA = 9
-local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
-
--- Variáveis
-local personagem
-local rootPart
-local movendo = true
-local ultimoZ = POSICAO_INICIAL.Z
-local brainJarDetectado = false
-
--- Prepara personagem com física correta
-local function prepararPersonagem()
-    personagem = player.Character or player.CharacterAdded:Wait()
-    rootPart = personagem:WaitForChild("HumanoidRootPart")
-    rootPart.Anchored = false
-    rootPart.AssemblyLinearVelocity = Vector3.new()
-    rootPart.AssemblyAngularVelocity = Vector3.new()
-    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
-    task.wait(0.5)
-    ultimoZ = rootPart.Position.Z
-end
-
--- Movimento contínuo
-local function moverPersonagem()
-    if movendo then
-        ultimoZ = ultimoZ - VELOCIDADE * 0.02
-        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
-    end
-end
-
--- Sentar no assento mais próximo
-local function sentarNoAssentoMaisProximo()
-    local maxDistance = 1000
-    local closestSeat = nil
-    local shortestDistance = maxDistance
-
-    for _, seat in ipairs(workspace:GetDescendants()) do
-        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
-            local distance = (seat.Position - rootPart.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestSeat = seat
+CriarBotao("Apagar Casas", function()
+    local function deleteColorWalls()
+        local count = 0
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name == "ColorWall" then
+                obj:Destroy()
+                count += 1
             end
         end
+        print("Apagados:", count)
     end
 
-    if closestSeat then
-        personagem:MoveTo(closestSeat.Position)
-        task.wait(0.5)
-        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
-    else
-        warn("Nenhum assento próximo encontrado!")
+    while true do
+        deleteColorWalls()
+        task.wait(5)
     end
-end
+end)
 
--- Retorna uma parte válida do modelo para usar como referência de posição
-local function obterParteDoModel(model)
-    if model:IsA("Model") then
-        if model.PrimaryPart then
-            return model.PrimaryPart
-        else
-            for _, parte in ipairs(model:GetDescendants()) do
-                if parte:IsA("BasePart") then
-                    return parte
-                end
+CriarBotao("Visual", "zom", function()
+local player = game:GetService("Players").LocalPlayer
+
+player.CameraMode = Enum.CameraMode.Classic
+
+player.CameraMinZoomDistance = 0.5
+player.CameraMaxZoomDistance = 30
+end)
+
+-- ABA OUTROS
+
+CriarBotao("Outros", "Apagar Casas", function()
+    local function deleteColorWalls()
+        local count = 0
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name == "ColorWall" then
+                obj:Destroy()
+                count += 1
             end
         end
+        print("Apagados:", count)
     end
-    return nil
-end
 
--- Verifica se BrainJar apareceu e está próximo
-local function verificarBrainJar()
-    if brainJarDetectado then return end
-    local runtime = workspace:FindFirstChild("RuntimeItems")
-    if runtime then
-        local cannon = runtime:FindFirstChild("Cannon")
-        local parteDoCannon = obterParteDoModel(cannon)
-
-        if parteDoCannon then
-            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
-            if distancia <= 300 then
-                brainJarDetectado = true
-                movendo = false
-                sentarNoAssentoMaisProximo()
-            end
-        end
+    while true do
+        deleteColorWalls()
+        task.wait(5)
     end
-end
+end)
 
--- Loop principal
-local function iniciar()
-    prepararPersonagem()
-
-    local conexao
-    conexao = RunService.Heartbeat:Connect(function()
-        moverPersonagem()
-        verificarBrainJar()
-    end)
-
-    personagem.Destroying:Connect(function()
-        conexao:Disconnect()
+-- Atualiza o tamanho do canvas para todas as abas
+for _, tab in pairs(Tabs) do
+    tab.UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        tab.Frame.CanvasSize = UDim2.new(0, 0, 0, tab.UIList.AbsoluteContentSize.Y + 10)
     end)
 end
-
--- Inicialização
-player.CharacterAdded:Connect(iniciar)
-if player.Character then iniciar() end
-
--- Tecla P para ativar/desativar movimento manualmente
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.P then
-        movendo = not movendo
-    end
-end)
-end)
-
-CriarBotao("castelo", function()
--- Serviços
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
--- Configurações
-local player = Players.LocalPlayer
-local VELOCIDADE = 1800
-local ALTURA = 9
-local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
-
--- Variáveis
-local personagem
-local rootPart
-local movendo = true
-local ultimoZ = POSICAO_INICIAL.Z
-local brainJarDetectado = false
-
--- Prepara personagem com física correta
-local function prepararPersonagem()
-    personagem = player.Character or player.CharacterAdded:Wait()
-    rootPart = personagem:WaitForChild("HumanoidRootPart")
-    rootPart.Anchored = false
-    rootPart.AssemblyLinearVelocity = Vector3.new()
-    rootPart.AssemblyAngularVelocity = Vector3.new()
-    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
-    task.wait(0.5)
-    ultimoZ = rootPart.Position.Z
-end
-
--- Movimento contínuo
-local function moverPersonagem()
-    if movendo then
-        ultimoZ = ultimoZ - VELOCIDADE * 0.02
-        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
-    end
-end
-
--- Sentar no assento mais próximo
-local function sentarNoAssentoMaisProximo()
-    local maxDistance = 1000
-    local closestSeat = nil
-    local shortestDistance = maxDistance
-
-    for _, seat in ipairs(workspace:GetDescendants()) do
-        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
-            local distance = (seat.Position - rootPart.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestSeat = seat
-            end
-        end
-    end
-
-    if closestSeat then
-        personagem:MoveTo(closestSeat.Position)
-        task.wait(0.5)
-        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
-    else
-        warn("Nenhum assento próximo encontrado!")
-    end
-end
-
--- Retorna uma parte válida do modelo para usar como referência de posição
-local function obterParteDoModel(model)
-    if model:IsA("Model") then
-        if model.PrimaryPart then
-            return model.PrimaryPart
-        else
-            for _, parte in ipairs(model:GetDescendants()) do
-                if parte:IsA("BasePart") then
-                    return parte
-                end
-            end
-        end
-    end
-    return nil
-end
-
--- Verifica se BrainJar apareceu e está próximo
-local function verificarBrainJar()
-    if brainJarDetectado then return end
-    local runtime = workspace:FindFirstChild("RuntimeItems")
-    if runtime then
-        local cannon = runtime:FindFirstChild("Vampire Knife")
-        local parteDoCannon = obterParteDoModel(cannon)
-
-        if parteDoCannon then
-            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
-            if distancia <= 300 then
-                brainJarDetectado = true
-                movendo = false
-                sentarNoAssentoMaisProximo()
-            end
-        end
-    end
-end
-
--- Loop principal
-local function iniciar()
-    prepararPersonagem()
-
-    local conexao
-    conexao = RunService.Heartbeat:Connect(function()
-        moverPersonagem()
-        verificarBrainJar()
-    end)
-
-    personagem.Destroying:Connect(function()
-        conexao:Disconnect()
-    end)
-end
-
--- Inicialização
-player.CharacterAdded:Connect(iniciar)
-if player.Character then iniciar() end
-
--- Tecla P para ativar/desativar movimento manualmente
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.P then
-        movendo = not movendo
-    end
-end)
-end)
-
--- Botão de fechar
-CriarBotao("❌ Fechar", function()
-    ScreenGui:Destroy()
-end)
