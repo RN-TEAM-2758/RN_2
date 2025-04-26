@@ -1570,6 +1570,39 @@ CriarBotao("Outros", "Apagar Casas", function()
     end
 end)
 
+CriarBotao("Outros", "sentar", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local maxDistance = 40
+
+local function getNearestSeat()
+    local closestSeat = nil
+    local shortestDistance = maxDistance
+
+    for _, seat in ipairs(workspace:GetDescendants()) do
+        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+            local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestSeat = seat
+            end
+        end
+    end
+
+    return closestSeat
+end
+
+local seat = getNearestSeat()
+if seat then
+    character:MoveTo(seat.Position)
+    task.wait(0.5)
+    seat:Sit(character:FindFirstChildOfClass("Humanoid"))
+else
+    warn("Nenhum assento próximo encontrado!")
+end
+end)
+
 -- Atualiza o tamanho do canvas para todas as abas
 for _, tab in pairs(Tabs) do
     tab.UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
