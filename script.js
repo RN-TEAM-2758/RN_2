@@ -834,6 +834,336 @@ button.MouseButton1Click:Connect(function()
 end)
 end)
 
+CriarBotao("TeslaLab", function()
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Configurações
+local TOTAL_TELEPORTES = 30
+local TELEPORTES_PARA_SENTAR = 15  -- Quando chegar no 15º teleporte, senta
+local INTERVALO_TELEPORTES = 0.1
+
+-- Verificação do personagem
+repeat
+    character = player.Character
+    if not character then
+        character = player.CharacterAdded:Wait()
+    end
+until character and character:FindFirstChild("HumanoidRootPart")
+
+-- Função de teleporte (original)
+local function teleportarParaTeslaLab()
+    local teslaLab = workspace:FindFirstChild("TeslaLab")
+    if not teslaLab then
+        warn("TeslaLab não encontrado!")
+        return false
+    end
+
+    local spawnPoint = teslaLab:FindFirstChild("SpawnPoint") or teslaLab:GetModelCFrame()
+    local destino = typeof(spawnPoint) == "Instance" and spawnPoint.CFrame or spawnPoint
+    
+    character:SetPrimaryPartCFrame(destino + Vector3.new(0, 3, 0))
+    return true
+end
+
+-- SEU SCRIPT ORIGINAL DE SENTAR (sem modificações)
+local function sentarPersonagem()
+    local maxDistance = 200
+
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        seat:Sit(character:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Sistema principal de teleportes
+for i = 1, TOTAL_TELEPORTES do
+    teleportarParaTeslaLab()
+    
+    -- Ativa o seu script original no 15º teleporte
+    if i == TELEPORTES_PARA_SENTAR then
+        sentarPersonagem()  -- Chama sua função original sem modificações
+    end
+    
+    task.wait(INTERVALO_TELEPORTES)
+end
+
+print("Processo completo! Total de teleportes: "..TOTAL_TELEPORTES)
+end)
+
+CriarBotao("forte", function()
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Configurações
+local player = Players.LocalPlayer
+local VELOCIDADE = 1700
+local ALTURA = 9
+local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
+
+-- Variáveis
+local personagem
+local rootPart
+local movendo = true
+local ultimoZ = POSICAO_INICIAL.Z
+local brainJarDetectado = false
+
+-- Prepara personagem com física correta
+local function prepararPersonagem()
+    personagem = player.Character or player.CharacterAdded:Wait()
+    rootPart = personagem:WaitForChild("HumanoidRootPart")
+    rootPart.Anchored = false
+    rootPart.AssemblyLinearVelocity = Vector3.new()
+    rootPart.AssemblyAngularVelocity = Vector3.new()
+    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
+    task.wait(0.5)
+    ultimoZ = rootPart.Position.Z
+end
+
+-- Movimento contínuo
+local function moverPersonagem()
+    if movendo then
+        ultimoZ = ultimoZ - VELOCIDADE * 0.02
+        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
+    end
+end
+
+-- Sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo()
+    local maxDistance = 1000
+    local closestSeat = nil
+    local shortestDistance = maxDistance
+
+    for _, seat in ipairs(workspace:GetDescendants()) do
+        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+            local distance = (seat.Position - rootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestSeat = seat
+            end
+        end
+    end
+
+    if closestSeat then
+        personagem:MoveTo(closestSeat.Position)
+        task.wait(0.5)
+        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Retorna uma parte válida do modelo para usar como referência de posição
+local function obterParteDoModel(model)
+    if model:IsA("Model") then
+        if model.PrimaryPart then
+            return model.PrimaryPart
+        else
+            for _, parte in ipairs(model:GetDescendants()) do
+                if parte:IsA("BasePart") then
+                    return parte
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Verifica se BrainJar apareceu e está próximo
+local function verificarBrainJar()
+    if brainJarDetectado then return end
+    local runtime = workspace:FindFirstChild("RuntimeItems")
+    if runtime then
+        local cannon = runtime:FindFirstChild("Cannon")
+        local parteDoCannon = obterParteDoModel(cannon)
+
+        if parteDoCannon then
+            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
+            if distancia <= 300 then
+                brainJarDetectado = true
+                movendo = false
+                sentarNoAssentoMaisProximo()
+            end
+        end
+    end
+end
+
+-- Loop principal
+local function iniciar()
+    prepararPersonagem()
+
+    local conexao
+    conexao = RunService.Heartbeat:Connect(function()
+        moverPersonagem()
+        verificarBrainJar()
+    end)
+
+    personagem.Destroying:Connect(function()
+        conexao:Disconnect()
+    end)
+end
+
+-- Inicialização
+player.CharacterAdded:Connect(iniciar)
+if player.Character then iniciar() end
+
+-- Tecla P para ativar/desativar movimento manualmente
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.P then
+        movendo = not movendo
+    end
+end)
+end)
+
+CriarBotao("castelo", function()
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Configurações
+local player = Players.LocalPlayer
+local VELOCIDADE = 1800
+local ALTURA = 9
+local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
+
+-- Variáveis
+local personagem
+local rootPart
+local movendo = true
+local ultimoZ = POSICAO_INICIAL.Z
+local brainJarDetectado = false
+
+-- Prepara personagem com física correta
+local function prepararPersonagem()
+    personagem = player.Character or player.CharacterAdded:Wait()
+    rootPart = personagem:WaitForChild("HumanoidRootPart")
+    rootPart.Anchored = false
+    rootPart.AssemblyLinearVelocity = Vector3.new()
+    rootPart.AssemblyAngularVelocity = Vector3.new()
+    rootPart.CFrame = CFrame.new(POSICAO_INICIAL)
+    task.wait(0.5)
+    ultimoZ = rootPart.Position.Z
+end
+
+-- Movimento contínuo
+local function moverPersonagem()
+    if movendo then
+        ultimoZ = ultimoZ - VELOCIDADE * 0.02
+        rootPart.CFrame = CFrame.new(rootPart.Position.X, ALTURA, ultimoZ)
+    end
+end
+
+-- Sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo()
+    local maxDistance = 1000
+    local closestSeat = nil
+    local shortestDistance = maxDistance
+
+    for _, seat in ipairs(workspace:GetDescendants()) do
+        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+            local distance = (seat.Position - rootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestSeat = seat
+            end
+        end
+    end
+
+    if closestSeat then
+        personagem:MoveTo(closestSeat.Position)
+        task.wait(0.5)
+        closestSeat:Sit(personagem:FindFirstChildOfClass("Humanoid"))
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Retorna uma parte válida do modelo para usar como referência de posição
+local function obterParteDoModel(model)
+    if model:IsA("Model") then
+        if model.PrimaryPart then
+            return model.PrimaryPart
+        else
+            for _, parte in ipairs(model:GetDescendants()) do
+                if parte:IsA("BasePart") then
+                    return parte
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Verifica se BrainJar apareceu e está próximo
+local function verificarBrainJar()
+    if brainJarDetectado then return end
+    local runtime = workspace:FindFirstChild("RuntimeItems")
+    if runtime then
+        local cannon = runtime:FindFirstChild("Vampire Knife")
+        local parteDoCannon = obterParteDoModel(cannon)
+
+        if parteDoCannon then
+            local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
+            if distancia <= 300 then
+                brainJarDetectado = true
+                movendo = false
+                sentarNoAssentoMaisProximo()
+            end
+        end
+    end
+end
+
+-- Loop principal
+local function iniciar()
+    prepararPersonagem()
+
+    local conexao
+    conexao = RunService.Heartbeat:Connect(function()
+        moverPersonagem()
+        verificarBrainJar()
+    end)
+
+    personagem.Destroying:Connect(function()
+        conexao:Disconnect()
+    end)
+end
+
+-- Inicialização
+player.CharacterAdded:Connect(iniciar)
+if player.Character then iniciar() end
+
+-- Tecla P para ativar/desativar movimento manualmente
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.P then
+        movendo = not movendo
+    end
+end)
+end)
+
 -- Botão de fechar
 CriarBotao("❌ Fechar", function()
     ScreenGui:Destroy()
