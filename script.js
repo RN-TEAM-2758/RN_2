@@ -677,6 +677,699 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 end)
 
+CriarBotao("Teleportes", "10 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(59, 10, 29892)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "20 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-152, 8, 19878)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "30 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-152, 8, 19878)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "40 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-582, 6, 34)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "50 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-177, 13, -9900)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "60 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(54, 13, -19817)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
+CriarBotao("Teleportes", "70 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-197, 9, -29738)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
 -- ABA NPCS
 CriarBotao("NPCs", "aimbot", function()
 local camera = game.Workspace.CurrentCamera
@@ -1568,39 +2261,6 @@ CriarBotao("Outros", "Apagar Casas", function()
         deleteColorWalls()
         task.wait(5)
     end
-end)
-
-CriarBotao("Outros", "sentar", function()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-
-local maxDistance = 40
-
-local function getNearestSeat()
-    local closestSeat = nil
-    local shortestDistance = maxDistance
-
-    for _, seat in ipairs(workspace:GetDescendants()) do
-        if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
-            local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestSeat = seat
-            end
-        end
-    end
-
-    return closestSeat
-end
-
-local seat = getNearestSeat()
-if seat then
-    character:MoveTo(seat.Position)
-    task.wait(0.5)
-    seat:Sit(character:FindFirstChildOfClass("Humanoid"))
-else
-    warn("Nenhum assento próximo encontrado!")
-end
 end)
 
 -- Atualiza o tamanho do canvas para todas as abas
