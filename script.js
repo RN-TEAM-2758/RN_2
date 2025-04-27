@@ -1376,7 +1376,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(0, 5, 0)
+        Vector3.new(-569, 10, -39681)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
