@@ -671,7 +671,7 @@ if player.Character then iniciar() end
 
 -- Tecla P para ativar/desativar movimento manualmente
 UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.P then
+    if input.KeyCode == Enum.KeyCode.H then
         movendo = not movendo
     end
 end)
