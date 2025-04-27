@@ -2263,6 +2263,14 @@ CriarBotao("Outros", "Apagar Casas", function()
     end
 end)
 
+CriarBotao("Outros", "horse", function()
+local args = {
+    [1] = "Horse"
+}
+
+game:GetService("ReplicatedStorage").Shared.RemotePromise.Remotes.C_BuyClass:FireServer(unpack(args))
+end)
+
 -- Atualiza o tamanho do canvas para todas as abas
 for _, tab in pairs(Tabs) do
     tab.UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
