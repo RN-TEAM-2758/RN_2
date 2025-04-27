@@ -677,7 +677,7 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 end)
 
-CriarBotao("Teleportes", "10 m", function()
+CriarBotao("Teleportes", "começo", function()
 local config = {
     vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,               -- Intervalo entre teleportes em segundos
@@ -776,13 +776,112 @@ if game.Players.LocalPlayer.Character then
 end
 end)
 
+CriarBotao("Teleportes", "10 m", function()
+local config = {
+    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
+    intervalo = 0,               -- Intervalo entre teleportes em segundos
+    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
+    posicoes = {
+        Vector3.new(-166, 9, 19903)
+    },
+    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
+}
+
+-- Função para mover/teleportar
+local function moverParaPosicao(rootPart, destino)
+    if config.velocidade > 0 then
+        local distancia = (destino - rootPart.Position).Magnitude
+        local duracao = distancia / config.velocidade
+        local inicio = tick()
+        local posInicial = rootPart.Position
+        
+        while tick() - inicio < duracao do
+            local progresso = (tick() - inicio) / duracao
+            rootPart.Position = posInicial:Lerp(destino, progresso)
+            game:GetService("RunService").Heartbeat:Wait()
+        end
+    end
+    rootPart.CFrame = CFrame.new(destino)
+end
+
+-- Função para encontrar e sentar no assento mais próximo
+local function sentarNoAssentoMaisProximo(character)
+    local maxDistance = 300
+    
+    local function getNearestSeat()
+        local closestSeat = nil
+        local shortestDistance = maxDistance
+
+        for _, seat in ipairs(workspace:GetDescendants()) do
+            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
+                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestSeat = seat
+                end
+            end
+        end
+        return closestSeat
+    end
+
+    local seat = getNearestSeat()
+    if seat then
+        character:MoveTo(seat.Position)
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            seat:Sit(humanoid)
+        end
+    else
+        warn("Nenhum assento próximo encontrado!")
+    end
+end
+
+-- Função principal
+local function iniciarTeleporte()
+    local character = game.Players.LocalPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    local teleportCount = 0
+    
+    for _, posicao in ipairs(config.posicoes) do
+        for i = 1, config.vezesTeleporte do
+            moverParaPosicao(humanoidRootPart, posicao)
+            teleportCount = teleportCount + 1
+            
+            -- Verifica se atingiu o número de teleportes para sentar
+            if teleportCount >= config.teleportesParaSentar then
+                sentarNoAssentoMaisProximo(character)
+                return  -- Encerra o teleporte após sentar
+            end
+            
+            wait(config.intervalo)
+        end
+    end
+end
+
+-- Inicia o teleporte quando o personagem spawnar
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Espera o personagem carregar completamente
+    iniciarTeleporte()
+end)
+
+-- Se já tiver um personagem, inicia imediatamente
+if game.Players.LocalPlayer.Character then
+    iniciarTeleporte()
+end
+end)
+
 CriarBotao("Teleportes", "20 m", function()
 local config = {
     vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-152, 8, 19878)
+        Vector3.new(-540, 5, 9948)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -881,7 +980,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-152, 8, 19878)
+        Vector3.new(-566, 7, 40)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -980,7 +1079,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-582, 6, 34)
+        Vector3.new(-173, 12, -9906)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1079,7 +1178,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-177, 13, -9900)
+        Vector3.new(54, 7, -19804)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1178,7 +1277,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(54, 13, -19817)
+        Vector3.new(-205, 3, -29750)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1277,7 +1376,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-197, 9, -29738)
+        Vector3.new(0, 5, 0)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1301,7 +1400,7 @@ end
 
 -- Função para encontrar e sentar no assento mais próximo
 local function sentarNoAssentoMaisProximo(character)
-    local maxDistance = 300
+    local maxDistance = 200
     
     local function getNearestSeat()
         local closestSeat = nil
