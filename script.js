@@ -24,7 +24,7 @@ ScreenGui.Parent = PlayerGui
 -- Botão flutuante
 local FloatButton = Instance.new("TextButton")
 FloatButton.Size = UDim2.new(0, 50, 0, 50)
-FloatButton.Position = UDim2.new(0, 20, 0.5, -45)
+FloatButton.Position = UDim2.new(0, 20, 0.5, -145)
 FloatButton.Text = "🡸"
 FloatButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 FloatButton.TextColor3 = Color3.new(1, 1, 1)
@@ -119,7 +119,58 @@ CreateTab("Itens")
 CreateTab("Visual")
 CreateTab("Outros")
 
--- Função para criar botão em uma aba específica
+-- Variáveis para armazenar estados dos toggles
+local Toggles = {
+    Fullbright = false,
+    Noclip = false,
+    ESP = false,
+    Zoom = false,
+    AutoColete = false,
+    SoldaItems = false,
+    Aimbot = false,
+    LockNPC = false,
+    AutoKillFinal = false
+}
+
+-- Conexões para desativar quando desligado
+local Connections = {
+    Noclip = nil,
+    ESP = nil,
+    Aimbot = nil
+}
+
+-- Função para criar botão toggle em uma aba específica
+function CriarToggle(tabName, nome, toggleName, funcOn, funcOff)
+    if not Tabs[tabName] then
+        warn("Aba '"..tabName.."' não existe!")
+        return
+    end
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.Text = nome .. ": OFF"
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextScaled = true
+    btn.Parent = Tabs[tabName].Frame
+    
+    btn.MouseButton1Click:Connect(function()
+        Toggles[toggleName] = not Toggles[toggleName]
+        
+        if Toggles[toggleName] then
+            btn.Text = nome .. ": ON"
+            btn.BackgroundColor3 = Color3.fromRGB(80, 120, 80)
+            if funcOn then funcOn() end
+        else
+            btn.Text = nome .. ": OFF"
+            btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            if funcOff then funcOff() end
+        end
+    end)
+end
+
+-- Função original para criar botões simples (não-toggle)
 function CriarBotao(tabName, nome, func)
     if not Tabs[tabName] then
         warn("Aba '"..tabName.."' não existe!")
@@ -149,25 +200,49 @@ end)
 -- ====== ORGANIZANDO OS BOTÕES NAS ABAS ======
 
 -- ABA PRINCIPAL
-CriarBotao("Principal", "🌞 Fullbright", function()
-    Lighting.GlobalShadows = false
-    Lighting.Brightness = 10
-end)
+CriarToggle("Principal", "🌞 Fullbright", "Fullbright", 
+    function()
+        Lighting.GlobalShadows = false
+        Lighting.Brightness = 10
+    end,
+    function()
+        Lighting.GlobalShadows = true
+        Lighting.Brightness = 1
+    end
+)
 
-CriarBotao("Principal", "Noclip", function()
-    local Player = game.Players.LocalPlayer
-    local Character = Player.Character or Player.CharacterAdded:Wait()
+CriarToggle("Principal", "Noclip", "Noclip", 
+    function()
+        local Player = game.Players.LocalPlayer
+        local Character = Player.Character or Player.CharacterAdded:Wait()
 
-    local function Noclip()
-        for _, part in pairs(Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
+        local function Noclip()
+            for _, part in pairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+
+        Connections.Noclip = game:GetService("RunService").Stepped:Connect(Noclip)
+    end,
+    function()
+        if Connections.Noclip then
+            Connections.Noclip:Disconnect()
+            Connections.Noclip = nil
+            
+            local Player = game.Players.LocalPlayer
+            local Character = Player.Character
+            if Character then
+                for _, part in pairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
             end
         end
     end
-
-    game:GetService("RunService").Stepped:Connect(Noclip)
-end)
+)
 
 CriarBotao("Principal", "❌ Fechar", function()
     ScreenGui:Destroy()
@@ -671,13 +746,13 @@ if player.Character then iniciar() end
 
 -- Tecla P para ativar/desativar movimento manualmente
 UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.H then
+    if input.KeyCode == Enum.KeyCode.P then
         movendo = not movendo
     end
 end)
 end)
 
-CriarBotao("Teleportes", "começo", function()
+CriarBotao("Teleportes", "10 m", function()
 local config = {
     vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,               -- Intervalo entre teleportes em segundos
@@ -776,112 +851,13 @@ if game.Players.LocalPlayer.Character then
 end
 end)
 
-CriarBotao("Teleportes", "10 m", function()
-local config = {
-    vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
-    intervalo = 0,               -- Intervalo entre teleportes em segundos
-    velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
-    posicoes = {
-        Vector3.new(-166, 9, 19903)
-    },
-    teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
-}
-
--- Função para mover/teleportar
-local function moverParaPosicao(rootPart, destino)
-    if config.velocidade > 0 then
-        local distancia = (destino - rootPart.Position).Magnitude
-        local duracao = distancia / config.velocidade
-        local inicio = tick()
-        local posInicial = rootPart.Position
-        
-        while tick() - inicio < duracao do
-            local progresso = (tick() - inicio) / duracao
-            rootPart.Position = posInicial:Lerp(destino, progresso)
-            game:GetService("RunService").Heartbeat:Wait()
-        end
-    end
-    rootPart.CFrame = CFrame.new(destino)
-end
-
--- Função para encontrar e sentar no assento mais próximo
-local function sentarNoAssentoMaisProximo(character)
-    local maxDistance = 300
-    
-    local function getNearestSeat()
-        local closestSeat = nil
-        local shortestDistance = maxDistance
-
-        for _, seat in ipairs(workspace:GetDescendants()) do
-            if seat:IsA("Seat") or seat:IsA("VehicleSeat") then
-                local distance = (seat.Position - character.HumanoidRootPart.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestSeat = seat
-                end
-            end
-        end
-        return closestSeat
-    end
-
-    local seat = getNearestSeat()
-    if seat then
-        character:MoveTo(seat.Position)
-        task.wait(0.5)
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            seat:Sit(humanoid)
-        end
-    else
-        warn("Nenhum assento próximo encontrado!")
-    end
-end
-
--- Função principal
-local function iniciarTeleporte()
-    local character = game.Players.LocalPlayer.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-    
-    local teleportCount = 0
-    
-    for _, posicao in ipairs(config.posicoes) do
-        for i = 1, config.vezesTeleporte do
-            moverParaPosicao(humanoidRootPart, posicao)
-            teleportCount = teleportCount + 1
-            
-            -- Verifica se atingiu o número de teleportes para sentar
-            if teleportCount >= config.teleportesParaSentar then
-                sentarNoAssentoMaisProximo(character)
-                return  -- Encerra o teleporte após sentar
-            end
-            
-            wait(config.intervalo)
-        end
-    end
-end
-
--- Inicia o teleporte quando o personagem spawnar
-game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
-    wait(1) -- Espera o personagem carregar completamente
-    iniciarTeleporte()
-end)
-
--- Se já tiver um personagem, inicia imediatamente
-if game.Players.LocalPlayer.Character then
-    iniciarTeleporte()
-end
-end)
-
 CriarBotao("Teleportes", "20 m", function()
 local config = {
     vezesTeleporte = 60,          -- Quantidade de vezes que vai teleportar por posição
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-540, 5, 9948)
+        Vector3.new(-152, 8, 19878)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -980,7 +956,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-566, 7, 40)
+        Vector3.new(-152, 8, 19878)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1079,7 +1055,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-173, 12, -9906)
+        Vector3.new(-582, 6, 34)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1178,7 +1154,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(54, 7, -19804)
+        Vector3.new(-177, 13, -9900)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1277,7 +1253,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-205, 3, -29750)
+        Vector3.new(54, 13, -19817)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1376,7 +1352,7 @@ local config = {
     intervalo = 0,               -- Intervalo entre teleportes em segundos
     velocidade = 0,              -- 0 para teleporte instantâneo, >0 para movimento suave
     posicoes = {
-        Vector3.new(-569, 10, -39681)
+        Vector3.new(-197, 9, -29738)
     },
     teleportesParaSentar = 30    -- Quantidade de teleportes antes de procurar assento
 }
@@ -1400,7 +1376,7 @@ end
 
 -- Função para encontrar e sentar no assento mais próximo
 local function sentarNoAssentoMaisProximo(character)
-    local maxDistance = 200
+    local maxDistance = 300
     
     local function getNearestSeat()
         local closestSeat = nil
@@ -2360,14 +2336,6 @@ CriarBotao("Outros", "Apagar Casas", function()
         deleteColorWalls()
         task.wait(5)
     end
-end)
-
-CriarBotao("Outros", "horse", function()
-local args = {
-    [1] = "Horse"
-}
-
-game:GetService("ReplicatedStorage").Shared.RemotePromise.Remotes.C_BuyClass:FireServer(unpack(args))
 end)
 
 -- Atualiza o tamanho do canvas para todas as abas
