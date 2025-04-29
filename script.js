@@ -508,7 +508,7 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Configurações
 local player = Players.LocalPlayer
-local VELOCIDADE = 1200
+local VELOCIDADE = 2400
 local ALTURA = 9
 local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
 
@@ -590,7 +590,7 @@ local function verificarBrainJar()
 
         if parteDoCannon then
             local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
-            if distancia <= 300 then
+            if distancia <= 1000 then
                 brainJarDetectado = true
                 movendo = false
                 sentarNoAssentoMaisProximo()
@@ -634,7 +634,7 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Configurações
 local player = Players.LocalPlayer
-local VELOCIDADE = 1800
+local VELOCIDADE = 2400
 local ALTURA = 9
 local POSICAO_INICIAL = Vector3.new(55, ALTURA, 29633)
 
@@ -667,7 +667,7 @@ end
 
 -- Sentar no assento mais próximo
 local function sentarNoAssentoMaisProximo()
-    local maxDistance = 1000
+    local maxDistance = 3000
     local closestSeat = nil
     local shortestDistance = maxDistance
 
@@ -716,7 +716,7 @@ local function verificarBrainJar()
 
         if parteDoCannon then
             local distancia = (parteDoCannon.Position - rootPart.Position).Magnitude
-            if distancia <= 300 then
+            if distancia <= 1000 then
                 brainJarDetectado = true
                 movendo = false
                 sentarNoAssentoMaisProximo()
