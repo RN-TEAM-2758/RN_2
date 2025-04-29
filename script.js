@@ -2291,24 +2291,6 @@ CriarBotao("Visual", "ESP jogador", function()
     end
 end)
 
-CriarBotao("Apagar Casas", function()
-    local function deleteColorWalls()
-        local count = 0
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj.Name == "ColorWall" then
-                obj:Destroy()
-                count += 1
-            end
-        end
-        print("Apagados:", count)
-    end
-
-    while true do
-        deleteColorWalls()
-        task.wait(5)
-    end
-end)
-
 CriarBotao("Visual", "zom", function()
 local player = game:GetService("Players").LocalPlayer
 
@@ -2319,7 +2301,6 @@ player.CameraMaxZoomDistance = 30
 end)
 
 -- ABA OUTROS
-
 CriarBotao("Outros", "Apagar Casas", function()
     local function deleteColorWalls()
         local count = 0
@@ -2338,7 +2319,7 @@ CriarBotao("Outros", "Apagar Casas", function()
     end
 end)
 
-CriarBotao("Outros", "class horse", function()class horse
+CriarBotao("Outros", "horse class", function()
 local args = {
     [1] = "Horse"
 }
